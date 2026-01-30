@@ -112,7 +112,7 @@ const dataSourceInfo: Record<string, { name: string; source: string; url: string
   "BAMLH0A0HYM2": { name: "HY OAS", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
   "crypto_funding": { name: "BTC Funding Rate", source: "Binance/OKX", url: "", description: "免费，无需API Key" },
   "crypto_oi": { name: "BTC Open Interest", source: "Binance/OKX", url: "", description: "免费，无需API Key" },
-  "crypto_liquidations": { name: "BTC Liquidations (24h)", source: "Coinalyze", url: "https://coinalyze.net/api/", description: "需要Coinalyze API Key（免费注册），多交易所聚合" },
+  "crypto_liquidations": { name: "BTC Liquidations (24h)", source: "Coinalyze", url: "https://coinalyze.net/api/", description: "需要Coinalyze API Key（免费注册），全市场聚合（Binance+OKX+Bybit+Bitget+BitMEX+Huobi+Gate+Kraken+dYdX等）" },
   "stablecoin": { name: "Stablecoin Supply", source: "DefiLlama", url: "", description: "免费，无需API Key" },
 };
 
