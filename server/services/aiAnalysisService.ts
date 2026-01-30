@@ -217,25 +217,28 @@ function buildUserMessage(input: AIAnalysisInput): string {
 
 请基于以上数据，生成AI解读报告。要求：
 
-1. **一句话结论**：当前情景 + watch/confirmed + 核心理由（最多2句）
+1. **一句话结论**：当前情景 + watch/confirmed + 核心理由（最多2句，纯文本，不要表格）
 
-2. **证据链**：列出3-5个关键组合信号，例如：
-   - "QQQ 7D上行+2.5%而GLD 7D强势+5.3% → Base信号"
-   - "BTC 7D=-6%且OI↓/清算↑ → 风险偏好环境偏弱"
+2. **证据链**：列出3-5个关键组合信号，每个信号一行，使用“-”开头，例如：
+   - QQQ 7D上行+2.5%而GLD 7D强势+5.3% → Base信号
+   - BTC 7D=-6%且OI↓/清算↑ → 风险偏好环境偏弱
 
 3. **杠杆/流动性判定**：一句话判断"堆积/出清/中性"（用于判断环境，非交易信号）
 
-4. **执行开关建议**（针对美股配置）：
-   - **[IBKR] Margin-loan**: Allowed/Pause + 理由（仅用于美股配置）
-   - **[US Equities] Put-selling**: Helper/Main + 理由（美股限价建仓工具）
-   - **[US Equities] Spot pacing**: Fast/Medium/Slow + 理由（向$700k里程碑推进）
+4. **执行开关建议**（针对美股配置，每个开关一行，使用“-”开头）：
+   - [IBKR] Margin-loan: Allowed/Pause - 理由（仅用于美股配置）
+   - [US Equities] Put-selling: Helper/Main - 理由（美股限价建仓工具）
+   - [US Equities] Spot pacing: Fast/Medium/Slow - 理由（向$700k里程碑推进）
 
-5. **风险提示**：若触发阈值（VIX>20、HY OAS +25bp、real yield +15bp、BTC 7D<-5%），要点名
+5. **风险提示**：若触发阈值（VIX>20、HY OAS +25bp、real yield +15bp、BTC 7D<-5%），要点名，每个风险一行，使用“-”开头
 
 6. **必须包含**：
-   > "市场信号来自BTC/宏观/信用，用于判定风险偏好；执行对象是美股（GOOG/META/MSFT等）的买入节奏与建仓工具。"
+   "市场信号来自BTC/宏观/信用，用于判定风险偏好；执行对象是美股（GOOG/META/MSFT等）的买入节奏与建仓工具。"
 
-请用中文输出，保持专业简洁。`;
+**输出格式要求**：
+- 不要使用Markdown表格
+- 使用纯文本和列表格式
+- 用中文输出，保持专业简洁`;
 
   return message;
 }

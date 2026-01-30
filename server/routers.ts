@@ -30,6 +30,9 @@ import {
   setSystemSetting,
   upsertCryptoMetricsDaily,
   getCryptoMetricsDaysAgo,
+  updateReportAIAnalysis,
+  getReportAIAnalysis,
+  AIAnalysisData,
 } from "./db";
 
 export const appRouter = router({
@@ -91,12 +94,16 @@ export const appRouter = router({
         console.warn("[API] Failed to calculate crypto trends:", err);
       }
       
+      // 获取AI分析数据
+      const aiAnalysis = await getReportAIAnalysis(report.id);
+      
       return {
         success: true,
         data: {
           ...report,
           snapshots,
           cryptoTrends,
+          aiAnalysis,
         },
       };
     }),
@@ -365,6 +372,24 @@ export const appRouter = router({
           });
           
           console.log("[API] AI analysis generated successfully");
+          
+          // 保存AI分析结果到数据库
+          const aiAnalysisData: AIAnalysisData = {
+            conclusion: analysis.summary,
+            evidenceChain: analysis.evidenceChain,
+            leverageJudgment: analysis.leverageJudgment,
+            switchRationale: {
+              margin: analysis.switchRationale.marginBorrow,
+              put: analysis.switchRationale.putSelling,
+              spot: analysis.switchRationale.spotPace,
+            },
+            riskAlerts: analysis.riskAlerts,
+            fullText: analysis.fullAnalysis,
+            generatedAt: Date.now(),
+          };
+          
+          await updateReportAIAnalysis(report.id, aiAnalysisData);
+          console.log("[API] AI analysis saved to database");
           
           return {
             success: true,

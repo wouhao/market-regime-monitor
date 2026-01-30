@@ -1,0 +1,1 @@
+ALTER TABLE `market_reports` ADD `aiAnalysis` json;

@@ -26,6 +26,17 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { Streamdown } from "streamdown";
 
+// 清理Markdown格式标记
+function cleanMarkdown(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')  // 移除加粗
+    .replace(/\*([^*]+)\*/g, '$1')      // 移除斜体
+    .replace(/`([^`]+)`/g, '$1')        // 移除代码标记
+    .replace(/^[-•]\s*/gm, '')          // 移除列表标记
+    .trim();
+}
+
 // 指标值格式化函数
 function formatIndicatorValue(indicator: string, value: number | null | undefined): string {
   // 处理null/undefined值
@@ -131,12 +142,13 @@ export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<{
-    summary: string;
+    conclusion: string;
     evidenceChain: string[];
     leverageJudgment: string;
-    switchRationale: { marginBorrow: string; putSelling: string; spotPace: string };
+    switchRationale: { margin: string; put: string; spot: string };
     riskAlerts: string[];
-    fullAnalysis: string;
+    fullText: string;
+    generatedAt: number;
   } | null>(null);
   
   const { data: latestData, isLoading, refetch } = trpc.market.getLatest.useQuery();
@@ -165,14 +177,27 @@ export default function Dashboard() {
 
   const handleRefresh = () => {
     refetch();
-    setAiAnalysis(null); // 清除AI分析
     toast.info("数据已刷新");
   };
   
   const aiAnalysisMutation = trpc.market.generateAIAnalysis.useMutation({
     onSuccess: (result) => {
       if (result.success && result.data) {
-        setAiAnalysis(result.data);
+        // 转换API返回的数据格式为前端使用的格式
+        setAiAnalysis({
+          conclusion: result.data.summary,
+          evidenceChain: result.data.evidenceChain,
+          leverageJudgment: result.data.leverageJudgment,
+          switchRationale: {
+            margin: result.data.switchRationale.marginBorrow,
+            put: result.data.switchRationale.putSelling,
+            spot: result.data.switchRationale.spotPace,
+          },
+          riskAlerts: result.data.riskAlerts,
+          fullText: result.data.fullAnalysis,
+          generatedAt: Date.now(),
+        });
+        refetch(); // 刷新数据以保存到数据库
         toast.success("AI分析已生成");
       } else {
         toast.error("AI分析失败", { description: result.message });
@@ -196,6 +221,10 @@ export default function Dashboard() {
 
   const report = latestData?.data;
   const regime = report?.regime ? regimeConfig[report.regime as keyof typeof regimeConfig] : null;
+  
+  // 从数据库加载已保存的AI分析结果
+  const savedAiAnalysis = report?.aiAnalysis;
+  const displayAiAnalysis = aiAnalysis || savedAiAnalysis;
   
   // 计算缺失的数据指标
   const snapshots = report?.snapshots as any[] || [];
@@ -405,7 +434,126 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* 市场快照 - 移到执行开关上方 */}
+          {/* AI 解读 - 显示在市场快照上方 */}
+          {displayAiAnalysis && (
+            <Card className="border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-purple-900/5">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-purple-400">
+                    <Brain className="h-5 w-5" />
+                    AI 解读
+                  </CardTitle>
+                  {displayAiAnalysis.generatedAt && (
+                    <span className="text-xs text-muted-foreground">
+                      生成于 {new Date(displayAiAnalysis.generatedAt).toLocaleString('zh-CN')}
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* 核心结论 - 突出显示 */}
+                <div className="p-5 rounded-xl bg-purple-500/15 border border-purple-500/30">
+                  <h4 className="font-bold text-purple-300 mb-3 flex items-center gap-2 text-base">
+                    <Sparkles className="h-5 w-5" />
+                    核心结论
+                  </h4>
+                  <p className="text-base leading-relaxed text-foreground">{cleanMarkdown(displayAiAnalysis.conclusion)}</p>
+                </div>
+                
+                {/* 证据链 - 卡片式布局 */}
+                {displayAiAnalysis.evidenceChain && displayAiAnalysis.evidenceChain.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      证据链
+                    </h4>
+                    <div className="grid gap-2">
+                      {displayAiAnalysis.evidenceChain.map((evidence, index) => (
+                        <div key={index} className="p-3 rounded-lg bg-muted/30 border border-muted/50 text-sm leading-relaxed">
+                          <span className="text-purple-400 font-bold mr-2">{index + 1}.</span>
+                          {cleanMarkdown(evidence)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* 杠杆/流动性判定 */}
+                {displayAiAnalysis.leverageJudgment && (
+                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <h4 className="font-semibold text-blue-400 mb-2 text-sm">杠杆/流动性判定</h4>
+                    <p className="text-sm leading-relaxed">{cleanMarkdown(displayAiAnalysis.leverageJudgment)}</p>
+                  </div>
+                )}
+                
+                {/* 执行开关建议 - 表格式布局 */}
+                {displayAiAnalysis.switchRationale && (
+                  <div>
+                    <h4 className="font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                      <Zap className="h-4 w-4" />
+                      执行开关建议
+                    </h4>
+                    <div className="overflow-hidden rounded-lg border border-muted/50">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/30">
+                            <th className="text-left py-3 px-4 font-semibold w-24">开关</th>
+                            <th className="text-left py-3 px-4 font-semibold">建议理由</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {displayAiAnalysis.switchRationale.margin && (
+                            <tr className="border-t border-muted/30">
+                              <td className="py-3 px-4">
+                                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">Margin</Badge>
+                              </td>
+                              <td className="py-3 px-4 text-muted-foreground leading-relaxed">{cleanMarkdown(displayAiAnalysis.switchRationale.margin)}</td>
+                            </tr>
+                          )}
+                          {displayAiAnalysis.switchRationale.put && (
+                            <tr className="border-t border-muted/30">
+                              <td className="py-3 px-4">
+                                <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30">Put</Badge>
+                              </td>
+                              <td className="py-3 px-4 text-muted-foreground leading-relaxed">{cleanMarkdown(displayAiAnalysis.switchRationale.put)}</td>
+                            </tr>
+                          )}
+                          {displayAiAnalysis.switchRationale.spot && (
+                            <tr className="border-t border-muted/30">
+                              <td className="py-3 px-4">
+                                <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30">Spot</Badge>
+                              </td>
+                              <td className="py-3 px-4 text-muted-foreground leading-relaxed">{cleanMarkdown(displayAiAnalysis.switchRationale.spot)}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                
+                {/* 风险提示 */}
+                {displayAiAnalysis.riskAlerts && displayAiAnalysis.riskAlerts.length > 0 && (
+                  <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+                    <h4 className="font-semibold text-red-400 mb-3 flex items-center gap-2">
+                      <AlertOctagon className="h-4 w-4" />
+                      风险提示
+                    </h4>
+                    <div className="space-y-2">
+                      {displayAiAnalysis.riskAlerts.map((alert, index) => (
+                        <div key={index} className="flex items-start gap-3 text-sm text-red-300">
+                          <span className="text-red-400">⚠️</span>
+                          <span className="leading-relaxed">{cleanMarkdown(alert)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 市场快照 */}
           {report.snapshots && (report.snapshots as any[]).length > 0 && (
             <Card>
               <CardHeader>
@@ -554,96 +702,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
-          
-          {/* AI 解读 */}
-          {aiAnalysis && (
-            <Card className="border-purple-500/30 bg-purple-500/5">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-purple-400">
-                  <Brain className="h-5 w-5" />
-                  AI 解读
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* 一句话结论 */}
-                <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                  <h4 className="font-semibold text-purple-300 mb-2 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    结论
-                  </h4>
-                  <p className="text-sm leading-relaxed">{aiAnalysis.summary}</p>
-                </div>
-                
-                {/* 证据链 */}
-                <div>
-                  <h4 className="font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4" />
-                    证据链
-                  </h4>
-                  <ul className="space-y-1">
-                    {aiAnalysis.evidenceChain.map((evidence, index) => (
-                      <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-purple-400">•</span>
-                        {evidence}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
-                {/* 杠杆/流动性判定 */}
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <h4 className="font-semibold text-muted-foreground mb-1 text-sm">杠杆/流动性判定</h4>
-                  <p className="text-sm">{aiAnalysis.leverageJudgment}</p>
-                </div>
-                
-                {/* 执行开关建议 */}
-                <div>
-                  <h4 className="font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-                    <Zap className="h-4 w-4" />
-                    执行开关建议
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    {aiAnalysis.switchRationale.marginBorrow && (
-                      <div className="flex items-start gap-2">
-                        <Badge variant="outline" className="shrink-0">Margin</Badge>
-                        <span className="text-muted-foreground">{aiAnalysis.switchRationale.marginBorrow}</span>
-                      </div>
-                    )}
-                    {aiAnalysis.switchRationale.putSelling && (
-                      <div className="flex items-start gap-2">
-                        <Badge variant="outline" className="shrink-0">Put</Badge>
-                        <span className="text-muted-foreground">{aiAnalysis.switchRationale.putSelling}</span>
-                      </div>
-                    )}
-                    {aiAnalysis.switchRationale.spotPace && (
-                      <div className="flex items-start gap-2">
-                        <Badge variant="outline" className="shrink-0">Spot</Badge>
-                        <span className="text-muted-foreground">{aiAnalysis.switchRationale.spotPace}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* 风险提示 */}
-                {aiAnalysis.riskAlerts.length > 0 && (
-                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                    <h4 className="font-semibold text-red-400 mb-2 flex items-center gap-2">
-                      <AlertOctagon className="h-4 w-4" />
-                      风险提示
-                    </h4>
-                    <ul className="space-y-1">
-                      {aiAnalysis.riskAlerts.map((alert, index) => (
-                        <li key={index} className="text-sm text-red-300 flex items-start gap-2">
-                          <span>⚠️</span>
-                          {alert}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
     </div>

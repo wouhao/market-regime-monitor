@@ -34,6 +34,20 @@ export const marketReports = mysqlTable("market_reports", {
   untriggeredRules: json("untriggeredRules").$type<string[]>(),
   dataQuality: decimal("dataQuality", { precision: 5, scale: 2 }).notNull(),
   reportContent: text("reportContent"), // Markdown内容
+  // AI分析结果
+  aiAnalysis: json("aiAnalysis").$type<{
+    conclusion: string;
+    evidenceChain: string[];
+    leverageJudgment: string;
+    switchRationale: {
+      margin: string;
+      put: string;
+      spot: string;
+    };
+    riskAlerts: string[];
+    fullText: string;
+    generatedAt: number;
+  }>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

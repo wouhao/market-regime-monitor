@@ -382,3 +382,45 @@ export async function getCryptoMetricsDaysAgo(daysAgo: number): Promise<CryptoMe
   
   return result.length > 0 ? result[0] : null;
 }
+
+
+// ============ AI Analysis Functions ============
+
+export interface AIAnalysisData {
+  conclusion: string;
+  evidenceChain: string[];
+  leverageJudgment: string;
+  switchRationale: {
+    margin: string;
+    put: string;
+    spot: string;
+  };
+  riskAlerts: string[];
+  fullText: string;
+  generatedAt: number;
+}
+
+export async function updateReportAIAnalysis(reportId: number, aiAnalysis: AIAnalysisData): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+  
+  await db
+    .update(marketReports)
+    .set({ aiAnalysis })
+    .where(eq(marketReports.id, reportId));
+}
+
+export async function getReportAIAnalysis(reportId: number): Promise<AIAnalysisData | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const result = await db
+    .select({ aiAnalysis: marketReports.aiAnalysis })
+    .from(marketReports)
+    .where(eq(marketReports.id, reportId))
+    .limit(1);
+  
+  return result.length > 0 ? result[0].aiAnalysis as AIAnalysisData | null : null;
+}
