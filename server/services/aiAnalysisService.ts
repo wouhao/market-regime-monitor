@@ -225,10 +225,15 @@ function buildUserMessage(input: AIAnalysisInput): string {
 
 3. **杠杆/流动性判定**：一句话判断"堆积/出清/中性"（用于判断环境，非交易信号）
 
-4. **执行开关建议**（针对美股配置，每个开关一行，使用“-”开头）：
-   - [IBKR] Margin-loan: Allowed/Pause - 理由（仅用于美股配置）
-   - [US Equities] Put-selling: Helper/Main - 理由（美股限价建仓工具）
-   - [US Equities] Spot pacing: Fast/Medium/Slow - 理由（向$700k里程碑推进）
+4. **执行开关建议**（针对美股配置，每个开关一行，使用"-"开头）：
+   - Margin: Allowed/Pause - 理由（IBKR抵押借款，仅用于美股配置）
+   - Put: Helper/Main - 理由（美股现金担保put，限价建仓工具）
+   - Spot: Fast/Medium/Slow - 理由（美股现货买入节奏，向$700k里程碑推进）
+   
+   **重要**：三个开关必须分别给出不同的理由：
+   - Margin关注借款成本（实际利率）和系统压力（VIX/HY OAS）
+   - Put关注波动率环境（VIX）和建仓机会
+   - Spot关注整体风险偏好环境和买入节奏
 
 5. **风险提示**：若触发阈值（VIX>20、HY OAS +25bp、real yield +15bp、BTC 7D<-5%），要点名，每个风险一行，使用“-”开头
 
@@ -284,14 +289,30 @@ function parseAIResponse(content: string): AIAnalysisResult {
       const lines = section.split("\n").filter(l => l.trim());
       for (const line of lines) {
         const lowerLine = line.toLowerCase();
-        if (lowerLine.includes("margin") || lowerLine.includes("loan") || lowerLine.includes("借款") || lowerLine.includes("ibkr")) {
-          switchRationale.marginBorrow = line.replace(/^[-•]\s*/, "").trim();
+        // 清理开关理由中的冗余前缀
+        const cleanSwitchRationale = (text: string): string => {
+          return text
+            .replace(/^[-•]\s*/, "")
+            .replace(/\[IBKR\]\s*/gi, "")
+            .replace(/\[US Equities\]\s*/gi, "")
+            .replace(/Margin-loan\s*\([^)]+\):\s*/gi, "")
+            .replace(/Put-selling\s*\([^)]+\):\s*/gi, "")
+            .replace(/Spot pacing:\s*/gi, "")
+            .replace(/Margin:\s*/gi, "")
+            .replace(/Put:\s*/gi, "")
+            .replace(/Spot:\s*/gi, "")
+            .trim();
+        };
+        
+        // 使用更精确的匹配，避免Margin和Spot混淆
+        if ((lowerLine.includes("margin") || lowerLine.includes("loan") || lowerLine.includes("借款") || lowerLine.includes("ibkr")) && !lowerLine.includes("spot") && !lowerLine.includes("put")) {
+          switchRationale.marginBorrow = cleanSwitchRationale(line);
         }
-        if (lowerLine.includes("put") || lowerLine.includes("卖put") || lowerLine.includes("建仓工具")) {
-          switchRationale.putSelling = line.replace(/^[-•]\s*/, "").trim();
+        if ((lowerLine.includes("put") || lowerLine.includes("卖put") || lowerLine.includes("建仓工具")) && !lowerLine.includes("margin") && !lowerLine.includes("spot")) {
+          switchRationale.putSelling = cleanSwitchRationale(line);
         }
-        if (lowerLine.includes("spot") || lowerLine.includes("pacing") || lowerLine.includes("现货") || lowerLine.includes("里程碑")) {
-          switchRationale.spotPace = line.replace(/^[-•]\s*/, "").trim();
+        if ((lowerLine.includes("spot") || lowerLine.includes("pacing") || lowerLine.includes("现货节奏") || lowerLine.includes("买入节奏")) && !lowerLine.includes("margin") && !lowerLine.includes("put")) {
+          switchRationale.spotPace = cleanSwitchRationale(line);
         }
       }
     }

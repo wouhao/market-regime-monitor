@@ -1,0 +1,26 @@
+{
+  "query": "SELECT * FROM crypto_metrics_daily ORDER BY dateBjt DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute SELECT * FROM crypto_metrics_daily ORDER BY dateBjt DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "1",
+      "dateBjt": "2026-01-30",
+      "tsBjt": "1769817216",
+      "funding": "-0.0022448848",
+      "oiUsd": "220183119193.38",
+      "liq24hUsd": "197189400.63",
+      "stableUsdtUsdcUsd": "304756458722.40",
+      "sourceFunding": "Binance/OKX",
+      "sourceOi": "Binance/OKX",
+      "sourceLiq": "Coinalyze (multi-exchange)",
+      "sourceStable": "DefiLlama",
+      "notes": "{\"missingReasons\":{\"funding\":null,\"oi\":null,\"liq\":null,\"stable\":null}}",
+      "createdAt": "2026-01-30 15:22:55",
+      "updatedAt": "2026-01-30 15:53:36"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tdateBjt\ttsBjt\tfunding\toiUsd\tliq24hUsd\tstableUsdtUsdcUsd\tsourceFunding\tsourceOi\tsourceLiq\tsourceStable\tnotes\tcreatedAt\tupdatedAt\n1\t2026-01-30\t1769817216\t-0.0022448848\t220183119193.38\t197189400.63\t304756458722.40\tBinance/OKX\tBinance/OKX\tCoinalyze (multi-exchange)\tDefiLlama\t{\"missingReasons\":{\"funding\":null,\"oi\":null,\"liq\":null,\"stable\":null}}\t2026-01-30 15:22:55\t2026-01-30 15:53:36\n",
+  "stderr": "",
+  "execution_time_ms": 1601
+}

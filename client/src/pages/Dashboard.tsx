@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { Streamdown } from "streamdown";
 
-// 清理Markdown格式标记
+// 清理Markdown格式标记和冗余前缀
 function cleanMarkdown(text: string): string {
   if (!text) return text;
   return text
@@ -34,6 +34,13 @@ function cleanMarkdown(text: string): string {
     .replace(/\*([^*]+)\*/g, '$1')      // 移除斜体
     .replace(/`([^`]+)`/g, '$1')        // 移除代码标记
     .replace(/^[-•]\s*/gm, '')          // 移除列表标记
+    // 清理执行开关的冗余前缀
+    .replace(/\[IBKR\]\s*/gi, '')
+    .replace(/\[US Equities\]\s*/gi, '')
+    .replace(/Margin-loan\s*\([^)]+\):\s*/gi, '')
+    .replace(/Put-selling\s*\([^)]+\):\s*/gi, '')
+    .replace(/Spot pacing:\s*/gi, '')
+    .replace(/^(Allowed|Pause|Helper|Main|Fast|Medium|Slow)\s*-\s*/i, '')  // 移除开关状态前缀
     .trim();
 }
 
