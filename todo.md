@@ -70,3 +70,9 @@
 - [x] 计算24h long/short/total liquidation notional (USD)
 - [x] 可选输出7D合计
 - [x] Sources标注OKX REST liquidation-orders + 请求时间戳 + 参数口径
+
+## 优化 (2026-01-30 - Funding Rate & Coinalyze)
+- [x] BTC Funding Rate 显示优化 - 用百分比格式显示（如 0.01%）
+- [x] 切换到 Coinalyze API - 获取多交易所聚合清算数据
+- [x] 添加 Coinalyze API Key 配置支持
+- [x] 更新前端数据源标注

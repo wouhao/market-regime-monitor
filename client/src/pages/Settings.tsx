@@ -38,11 +38,11 @@ export default function Settings() {
 
 function ApiConfigSection() {
   const [fredKey, setFredKey] = useState("");
-  const [coinglassKey, setCoinglassKey] = useState("");
+  const [coinalyzeKey, setCoinalyzeKey] = useState("");
   const [showFredKey, setShowFredKey] = useState(false);
-  const [showCoinglassKey, setShowCoinglassKey] = useState(false);
+  const [showCoinalyzeKey, setShowCoinalyzeKey] = useState(false);
   const [savingFred, setSavingFred] = useState(false);
-  const [savingCoinglass, setSavingCoinglass] = useState(false);
+  const [savingCoinalyze, setSavingCoinalyze] = useState(false);
 
   const { data: configData, isLoading, refetch } = trpc.config.getAll.useQuery();
   const saveMutation = trpc.config.save.useMutation();
@@ -50,7 +50,7 @@ function ApiConfigSection() {
 
   const configs = configData?.data || [];
   const fredConfig = configs.find(c => c.key === "FRED_API_KEY");
-  const coinglassConfig = configs.find(c => c.key === "COINGLASS_API_KEY");
+  const coinalyzeConfig = configs.find(c => c.key === "COINALYZE_API_KEY");
 
   const handleSaveFred = async () => {
     if (!fredKey.trim()) {
@@ -69,21 +69,21 @@ function ApiConfigSection() {
     setSavingFred(false);
   };
 
-  const handleSaveCoinglass = async () => {
-    if (!coinglassKey.trim()) {
-      toast.error("请输入CoinGlass API Key");
+  const handleSaveCoinalyze = async () => {
+    if (!coinalyzeKey.trim()) {
+      toast.error("请输入Coinalyze API Key");
       return;
     }
-    setSavingCoinglass(true);
+    setSavingCoinalyze(true);
     try {
-      await saveMutation.mutateAsync({ key: "COINGLASS_API_KEY", value: coinglassKey });
-      toast.success("CoinGlass API Key 已保存");
-      setCoinglassKey("");
+      await saveMutation.mutateAsync({ key: "COINALYZE_API_KEY", value: coinalyzeKey });
+      toast.success("Coinalyze API Key 已保存");
+      setCoinalyzeKey("");
       refetch();
     } catch (error) {
       toast.error("保存失败");
     }
-    setSavingCoinglass(false);
+    setSavingCoinalyze(false);
   };
 
   const handleTestFred = async () => {
@@ -95,8 +95,8 @@ function ApiConfigSection() {
     }
   };
 
-  const handleTestCoinglass = async () => {
-    const result = await testMutation.mutateAsync({ key: "COINGLASS_API_KEY" });
+  const handleTestCoinalyze = async () => {
+    const result = await testMutation.mutateAsync({ key: "COINALYZE_API_KEY" });
     if (result.success) {
       toast.success(result.message);
     } else {
@@ -187,11 +187,11 @@ function ApiConfigSection() {
           </div>
         </div>
 
-        {/* CoinGlass API Key */}
+        {/* Coinalyze API Key */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="text-base font-medium">CoinGlass API Key</Label>
-            {coinglassConfig?.isConfigured ? (
+            <Label className="text-base font-medium">Coinalyze API Key</Label>
+            {coinalyzeConfig?.isConfigured ? (
               <Badge variant="outline" className="text-green-400 border-green-400/30">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 已配置
@@ -204,39 +204,39 @@ function ApiConfigSection() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            用于获取加密货币衍生品数据（资金费率、持仓量等）。
+            用于获取多交易所聚合的BTC清算数据（Binance+OKX+Bybit）。
             <a 
-              href="https://coinglass.com/zh/api" 
+              href="https://coinalyze.net/api/" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-primary hover:underline ml-1"
             >
-              获取API Key →
+              免费注册获取API Key →
             </a>
           </p>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Input
-                type={showCoinglassKey ? "text" : "password"}
-                placeholder="输入新的CoinGlass API Key"
-                value={coinglassKey}
-                onChange={(e) => setCoinglassKey(e.target.value)}
+                type={showCoinalyzeKey ? "text" : "password"}
+                placeholder="输入新的Coinalyze API Key"
+                value={coinalyzeKey}
+                onChange={(e) => setCoinalyzeKey(e.target.value)}
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 className="absolute right-0 top-0 h-full px-3"
-                onClick={() => setShowCoinglassKey(!showCoinglassKey)}
+                onClick={() => setShowCoinalyzeKey(!showCoinalyzeKey)}
               >
-                {showCoinglassKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showCoinalyzeKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
-            <Button onClick={handleSaveCoinglass} disabled={savingCoinglass}>
-              {savingCoinglass ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <Button onClick={handleSaveCoinalyze} disabled={savingCoinalyze}>
+              {savingCoinalyze ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             </Button>
-            {coinglassConfig?.isConfigured && (
-              <Button variant="outline" onClick={handleTestCoinglass} disabled={testMutation.isPending}>
+            {coinalyzeConfig?.isConfigured && (
+              <Button variant="outline" onClick={handleTestCoinalyze} disabled={testMutation.isPending}>
                 测试
               </Button>
             )}

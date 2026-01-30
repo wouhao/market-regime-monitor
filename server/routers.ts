@@ -117,16 +117,20 @@ export const appRouter = router({
       console.log(`[API] Generating new report for user: ${ctx.user.id}`);
       
       try {
-        // 获取用户的API配置 (加密数据现在使用Binance免费API，不需要CoinGlass)
+        // 获取用户的API配置
         const fredConfig = await getApiConfigByKey(ctx.user.id, "FRED_API_KEY");
         const fredApiKey = fredConfig?.configValue || "demo_key";
+        
+        // 获取Coinalyze API Key用于清算数据
+        const coinalyzeConfig = await getApiConfigByKey(ctx.user.id, "COINALYZE_API_KEY");
+        const coinalyzeApiKey = coinalyzeConfig?.configValue || undefined;
         
         // 获取上一次的情景用于确认状态判定
         const lastReport = await getLatestReport();
         const previousRegime = lastReport?.regime;
         
-        // 生成报告 (加密数据使用Binance免费API)
-        const reportData = await generateMarketReport(fredApiKey, previousRegime);
+        // 生成报告 (使用Coinalyze获取多交易所聚合清算数据)
+        const reportData = await generateMarketReport(fredApiKey, coinalyzeApiKey, previousRegime);
         
         // 获取北京时间日期
         const now = new Date();

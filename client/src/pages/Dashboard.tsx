@@ -22,6 +22,43 @@ import {
 import { toast } from "sonner";
 import { useState } from "react";
 
+// 指标值格式化函数
+function formatIndicatorValue(indicator: string, value: number): string {
+  // Funding Rate 用百分比格式显示
+  if (indicator === "crypto_funding") {
+    return `${(value * 100).toFixed(4)}%`;
+  }
+  // 清算数据用美元格式
+  if (indicator === "crypto_liquidations") {
+    if (value >= 1e9) {
+      return `$${(value / 1e9).toFixed(2)}B`;
+    } else if (value >= 1e6) {
+      return `$${(value / 1e6).toFixed(2)}M`;
+    }
+    return `$${value.toLocaleString()}`;
+  }
+  // OI 用美元格式
+  if (indicator === "crypto_oi") {
+    if (value >= 1e9) {
+      return `$${(value / 1e9).toFixed(2)}B`;
+    } else if (value >= 1e6) {
+      return `$${(value / 1e6).toFixed(2)}M`;
+    }
+    return `$${value.toLocaleString()}`;
+  }
+  // 稳定币供应用美元格式
+  if (indicator === "stablecoin") {
+    if (value >= 1e9) {
+      return `$${(value / 1e9).toFixed(2)}B`;
+    } else if (value >= 1e6) {
+      return `$${(value / 1e6).toFixed(2)}M`;
+    }
+    return `$${value.toLocaleString()}`;
+  }
+  // 默认格式
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
 // 情景状态映射
 const regimeConfig = {
   risk_on: {
@@ -75,7 +112,7 @@ const dataSourceInfo: Record<string, { name: string; source: string; url: string
   "BAMLH0A0HYM2": { name: "HY OAS", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
   "crypto_funding": { name: "BTC Funding Rate", source: "Binance/OKX", url: "", description: "免费，无需API Key" },
   "crypto_oi": { name: "BTC Open Interest", source: "Binance/OKX", url: "", description: "免费，无需API Key" },
-  "crypto_liquidations": { name: "BTC Liquidations (24h)", source: "OKX REST", url: "https://www.okx.com/docs-v5/", description: "免费，/api/v5/public/liquidation-orders" },
+  "crypto_liquidations": { name: "BTC Liquidations (24h)", source: "Coinalyze", url: "https://coinalyze.net/api/", description: "需要Coinalyze API Key（免费注册），多交易所聚合" },
   "stablecoin": { name: "Stablecoin Supply", source: "DefiLlama", url: "", description: "免费，无需API Key" },
 };
 
@@ -338,8 +375,8 @@ export default function Dashboard() {
                             <div className="text-xs text-muted-foreground">{snapshot.indicator}</div>
                           </td>
                           <td className="text-right py-3 px-2 font-mono">
-                            {snapshot.latestValue 
-                              ? Number(snapshot.latestValue).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                            {snapshot.latestValue !== null && snapshot.latestValue !== undefined
+                              ? formatIndicatorValue(snapshot.indicator, snapshot.latestValue)
                               : <span className="text-yellow-500">--</span>}
                           </td>
                           <td className="text-right py-3 px-2">

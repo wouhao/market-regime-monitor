@@ -52,7 +52,7 @@ const INDICATORS_CONFIG = [
   // 4个加密指标 (使用Binance免费API + DefiLlama)
   { indicator: "crypto_funding", displayName: "BTC Funding Rate", source: "binance" },
   { indicator: "crypto_oi", displayName: "BTC Open Interest", source: "binance" },
-  { indicator: "crypto_liquidations", displayName: "BTC Liquidations (24h)", source: "okx_liq" },
+  { indicator: "crypto_liquidations", displayName: "BTC Liquidations (24h)", source: "coinalyze" },
   { indicator: "stablecoin", displayName: "Stablecoin Supply (USDT+USDC)", source: "defillama" },
 ];
 
@@ -369,6 +369,119 @@ async function fetchOKXLiquidations(): Promise<LiquidationResult | null> {
 }
 
 /**
+ * 从Coinalyze获取BTC清算数据 (REST API)
+ * 使用 /v1/liquidation-history 接口
+ * 返回: { total24h, long24h, short24h, total7d, requestTime, params }
+ */
+interface CoinalyzeLiquidationResult {
+  total24h: number;
+  long24h: number;
+  short24h: number;
+  total7d: number;
+  requestTime: string;
+  params: string;
+  source: string;
+}
+
+async function fetchCoinalyzeLiquidations(apiKey: string): Promise<CoinalyzeLiquidationResult | null> {
+  try {
+    const baseUrl = "https://api.coinalyze.net/v1";
+    const requestTime = new Date().toISOString();
+    
+    // 主要BTC永续合约符号 (Binance, OKX, Bybit)
+    const symbols = [
+      "BTCUSDT_PERP.A",  // Binance
+      "BTCUSDT_PERP.6",  // OKX
+      "BTCUSDT_PERP.4",  // Bybit
+    ].join(",");
+    
+    const params = `symbols=${symbols}&interval=1hour&convert_to_usd=true`;
+    
+    console.log(`[Coinalyze] Fetching liquidation history...`);
+    console.log(`[Coinalyze] Request time: ${requestTime}`);
+    console.log(`[Coinalyze] Params: ${params}`);
+    
+    // 获取过去48小时的数据（确保覆盖24h）
+    const now = Math.floor(Date.now() / 1000);
+    const from = now - 48 * 60 * 60; // 48小时前
+    
+    const url = `${baseUrl}/liquidation-history?${params}&from=${from}&to=${now}`;
+    
+    const response = await axios.get(url, {
+      headers: {
+        "api_key": apiKey,
+      },
+      timeout: 15000,
+    });
+    
+    if (!response.data || !Array.isArray(response.data)) {
+      console.error(`[Coinalyze] Invalid response format`);
+      return null;
+    }
+    
+    // 聚合所有交易所的数据
+    const now24hAgo = (now - 24 * 60 * 60) * 1000; // 转换为毫秒
+    const now7dAgo = (now - 7 * 24 * 60 * 60) * 1000;
+    
+    let long24h = 0;
+    let short24h = 0;
+    let total7d = 0;
+    
+    // response.data 是数组，每个元素对应一个交易所
+    for (const exchangeData of response.data) {
+      const history = exchangeData.history || [];
+      
+      for (const point of history) {
+        const t = point.t; // 时间戳 (毫秒)
+        const l = point.l || 0; // long liquidations (USD)
+        const s = point.s || 0; // short liquidations (USD)
+        
+        // 7D 合计
+        if (t >= now7dAgo) {
+          total7d += l + s;
+          
+          // 24h 分类统计
+          if (t >= now24hAgo) {
+            long24h += l;
+            short24h += s;
+          }
+        }
+      }
+    }
+    
+    const total24h = long24h + short24h;
+    
+    console.log(`[Coinalyze] 24h Long: $${long24h.toLocaleString()}`);
+    console.log(`[Coinalyze] 24h Short: $${short24h.toLocaleString()}`);
+    console.log(`[Coinalyze] 24h Total: $${total24h.toLocaleString()}`);
+    console.log(`[Coinalyze] 7D Total: $${total7d.toLocaleString()}`);
+    
+    return {
+      total24h,
+      long24h,
+      short24h,
+      total7d,
+      requestTime,
+      params,
+      source: "Coinalyze REST /v1/liquidation-history (Binance+OKX+Bybit)",
+    };
+  } catch (error: unknown) {
+    const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
+    const status = axiosError.response?.status;
+    
+    if (status === 429) {
+      console.error(`[Coinalyze] Rate limited (429). Please retry later.`);
+    } else if (status === 401 || status === 403) {
+      console.error(`[Coinalyze] API Key invalid or missing.`);
+    } else {
+      console.error(`[Coinalyze] Failed to fetch liquidations:`, status || axiosError.message);
+    }
+    
+    return null;
+  }
+}
+
+/**
  * 从DefiLlama获取稳定币数据
  */
 async function fetchDefiLlamaData(): Promise<number | null> {
@@ -411,7 +524,7 @@ function calculateMA20(prices: number[]): number | null {
 /**
  * 获取所有市场数据
  */
-export async function fetchAllMarketData(fredApiKey: string): Promise<MarketIndicator[]> {
+export async function fetchAllMarketData(fredApiKey: string, coinalyzeApiKey?: string): Promise<MarketIndicator[]> {
   console.log("[MarketData] Starting data fetch...");
   const results: MarketIndicator[] = [];
   
@@ -439,12 +552,23 @@ export async function fetchAllMarketData(fredApiKey: string): Promise<MarketIndi
         }
       } else if (config.source === "defillama") {
         latest = await fetchDefiLlamaData();
+      } else if (config.source === "coinalyze") {
+        // 使用Coinalyze REST API获取多交易所聚合的清算数据
+        if (coinalyzeApiKey) {
+          const liqData = await fetchCoinalyzeLiquidations(coinalyzeApiKey);
+          if (liqData) {
+            latest = liqData.total24h;
+            // 将详细数据存储在全局变量中，供后续使用
+            (global as Record<string, unknown>).__lastLiquidationData = liqData;
+          }
+        } else {
+          console.log(`[MarketData] Coinalyze API Key not configured, skipping liquidations`);
+        }
       } else if (config.source === "okx_liq") {
-        // 使用OKX REST API获取真实的清算数据
+        // 备用: 使用OKX REST API获取清算数据
         const liqData = await fetchOKXLiquidations();
         if (liqData) {
           latest = liqData.total24h;
-          // 将详细数据存储在全局变量中，供后续使用
           (global as Record<string, unknown>).__lastLiquidationData = liqData;
         }
       }
@@ -737,12 +861,13 @@ export function generateReportContent(
  */
 export async function generateMarketReport(
   fredApiKey: string,
+  coinalyzeApiKey?: string,
   previousRegime?: string
 ): Promise<MarketReportData> {
   console.log("[MarketReport] Starting report generation...");
   
-  // 1. 获取所有市场数据 (使用Binance免费API获取加密数据)
-  const snapshots = await fetchAllMarketData(fredApiKey);
+  // 1. 获取所有市场数据 (使用Coinalyze获取多交易所聚合清算数据)
+  const snapshots = await fetchAllMarketData(fredApiKey, coinalyzeApiKey);
   
   // 2. 判定市场情景
   const regime = classifyRegime(snapshots, previousRegime);
