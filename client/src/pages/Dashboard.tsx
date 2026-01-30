@@ -34,8 +34,9 @@ function formatIndicatorValue(indicator: string, value: number | null | undefine
   }
   
   // Funding Rate 用百分比格式显示，保留6位小数
+  // OKX API返回的是原始值（如 -0.0000453），后端已乘以100转为百分比
+  // 前端直接显示，保留6位小数
   if (indicator === "crypto_funding") {
-    // value 已经是百分比形式（如 0.1714 表示 0.1714%）
     return `${value.toFixed(6)}%`;
   }
   // 清算数据用美元格式
@@ -65,8 +66,8 @@ function formatIndicatorValue(indicator: string, value: number | null | undefine
     }
     return `$${value.toLocaleString()}`;
   }
-  // 默认格式
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  // 非加密指标默认保留2位小数
+  return value.toFixed(2);
 }
 
 // 情景状态映射

@@ -39,14 +39,16 @@ export interface MarketReportData {
 }
 
 // 指标配置
-// 传统市场指标 (7个) + 加密指标 (4个)
+// 顺序：BTC/QQQ/GLD/VIX/DXY/10Y/10Y real yield/HY OAS + 加密指标
+// 注：MOVE Index在FRED中不可用，暂不添加
 const INDICATORS_CONFIG = [
-  // 传统市场指标
+  // 传统市场指标 (8个)
   { indicator: "BTC-USD", displayName: "Bitcoin", source: "yahoo" },
   { indicator: "QQQ", displayName: "Nasdaq-100 ETF", source: "yahoo" },
   { indicator: "GLD", displayName: "SPDR Gold", source: "yahoo" },
-  { indicator: "DGS10", displayName: "10Y Treasury", source: "fred" },
   { indicator: "VIXCLS", displayName: "VIX Index", source: "fred" },
+  { indicator: "DX-Y.NYB", displayName: "US Dollar Index (DXY)", source: "yahoo" },
+  { indicator: "DGS10", displayName: "10Y Treasury", source: "fred" },
   { indicator: "DFII10", displayName: "10Y Real Yield", source: "fred" },
   { indicator: "BAMLH0A0HYM2", displayName: "HY OAS", source: "fred" },
   // 4个加密指标 (使用Binance免费API + DefiLlama)

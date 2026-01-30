@@ -105,3 +105,23 @@
 - [x] 输出执行开关建议及理由
 - [x] watch vs confirmed去噪机制
 - [x] 前端AI解读按钮和卡片UI
+
+## Bug修复 (2026-01-30 - Funding Rate显示错误)
+- [x] BTC Funding Rate显示0.1714%应为0.001714%（数据源返回的是原始值需要乘以100转换为百分比） - 已修复显示格式
+
+## 优化 (2026-01-30 - 数值格式化)
+- [x] 非加密指标（BTC/QQQ/GLD/10Y/VIX/Real Yield/HY OAS）最新值保留2位小数 - 已修复
+
+## 优化 (2026-01-30 - 指标顺序调整)
+- [x] 调整指标顺序为：BTC/QQQ/GLD/VIX/DXY/10Y/10Y real yield/HY OAS + 加密指标 - 已完成
+
+## 新功能 (2026-01-30 - 新增指标)
+- [x] 添加DXY（美元指数）指标 - 已添加DX-Y.NYB
+- [ ] 添加MOVE（债券波动率指数）指标 - FRED中不可用，暂不添加
+
+## 优化 (2026-01-30 - AI分析执行开关语义修正)
+- [x] 修正执行开关语义为美股操作（非BTC操作） - 已完成
+- [x] Spot pacing = 美股现货分批买入节奏 - 已添加Domain Lock
+- [x] Put-selling = 美股现金担保put（限价建仓工具） - 已添加Domain Lock
+- [x] Margin-loan = IBKR抵押借款（仅用于美股配置） - 已添加Domain Lock
+- [x] 添加用户目标上下文（美股市值$52万→$70万里程碑） - 已添加
