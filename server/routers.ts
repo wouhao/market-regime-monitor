@@ -7,8 +7,13 @@ import {
   generateMarketReport, 
   MarketIndicator,
   RegimeResult,
-  ExecutionSwitches 
+  ExecutionSwitches,
+  extractCryptoMetrics,
+  calculateCryptoTrends,
+  generateSparkline,
+  CryptoTrendData
 } from "./services/marketDataService";
+import { generateAIAnalysis, AIAnalysisResult } from "./services/aiAnalysisService";
 import {
   saveMarketReport,
   saveMarketSnapshots,
@@ -23,6 +28,8 @@ import {
   getApiConfigByKey,
   getSystemSetting,
   setSystemSetting,
+  upsertCryptoMetricsDaily,
+  getCryptoMetricsDaysAgo,
 } from "./db";
 
 export const appRouter = router({
@@ -50,11 +57,46 @@ export const appRouter = router({
       
       const snapshots = await getSnapshotsByReportId(report.id);
       
+      // 获取加密指标趋势数据
+      let cryptoTrends: CryptoTrendData | null = null;
+      try {
+        const [d1, d7, d30] = await Promise.all([
+          getCryptoMetricsDaysAgo(1),
+          getCryptoMetricsDaysAgo(7),
+          getCryptoMetricsDaysAgo(30),
+        ]);
+        
+        // 从快照中提取当前加密指标
+        const fundingSnapshot = snapshots.find(s => s.indicator === "crypto_funding");
+        const oiSnapshot = snapshots.find(s => s.indicator === "crypto_oi");
+        const liqSnapshot = snapshots.find(s => s.indicator === "crypto_liquidations");
+        const stableSnapshot = snapshots.find(s => s.indicator === "stablecoin");
+        
+        const current = {
+          funding: fundingSnapshot?.latestValue ? Number(fundingSnapshot.latestValue) : null,
+          oiUsd: oiSnapshot?.latestValue ? Number(oiSnapshot.latestValue) : null,
+          liq24hUsd: liqSnapshot?.latestValue ? Number(liqSnapshot.latestValue) : null,
+          stableUsdtUsdcUsd: stableSnapshot?.latestValue ? Number(stableSnapshot.latestValue) : null,
+        };
+        
+        const toMetrics = (m: typeof d1) => m ? {
+          funding: m.funding ? Number(m.funding) : null,
+          oiUsd: m.oiUsd ? Number(m.oiUsd) : null,
+          liq24hUsd: m.liq24hUsd ? Number(m.liq24hUsd) : null,
+          stableUsdtUsdcUsd: m.stableUsdtUsdcUsd ? Number(m.stableUsdtUsdcUsd) : null,
+        } : null;
+        
+        cryptoTrends = calculateCryptoTrends(current, toMetrics(d1), toMetrics(d7), toMetrics(d30));
+      } catch (err) {
+        console.warn("[API] Failed to calculate crypto trends:", err);
+      }
+      
       return {
         success: true,
         data: {
           ...report,
           snapshots,
+          cryptoTrends,
         },
       };
     }),
@@ -123,7 +165,9 @@ export const appRouter = router({
         
         // 获取Coinalyze API Key用于清算数据
         const coinalyzeConfig = await getApiConfigByKey(ctx.user.id, "COINALYZE_API_KEY");
+        console.log(`[API] User ID: ${ctx.user.id}, Coinalyze config found: ${!!coinalyzeConfig}, value: ${coinalyzeConfig?.configValue ? 'SET' : 'NOT SET'}`);
         const coinalyzeApiKey = coinalyzeConfig?.configValue || undefined;
+        console.log(`[API] Coinalyze API Key: ${coinalyzeApiKey ? 'Configured' : 'Not configured'}`);
         
         // 获取上一次的情景用于确认状态判定
         const lastReport = await getLatestReport();
@@ -168,6 +212,34 @@ export const appRouter = router({
         
         await saveMarketSnapshots(reportId, snapshotsToSave);
         
+        // 保存加密指标到历史表（用于趋势计算）
+        const cryptoMetrics = extractCryptoMetrics(reportData.snapshots);
+        try {
+          await upsertCryptoMetricsDaily({
+            dateBjt: reportDate,
+            tsBjt: Math.floor(bjTime.getTime() / 1000),
+            funding: cryptoMetrics.funding?.toString() || null,
+            oiUsd: cryptoMetrics.oiUsd?.toString() || null,
+            liq24hUsd: cryptoMetrics.liq24hUsd?.toString() || null,
+            stableUsdtUsdcUsd: cryptoMetrics.stableUsdtUsdcUsd?.toString() || null,
+            sourceFunding: cryptoMetrics.sources.funding,
+            sourceOi: cryptoMetrics.sources.oi,
+            sourceLiq: cryptoMetrics.sources.liq,
+            sourceStable: cryptoMetrics.sources.stable,
+            notes: JSON.stringify({
+              missingReasons: {
+                funding: cryptoMetrics.funding === null ? "API not available" : null,
+                oi: cryptoMetrics.oiUsd === null ? "API not available" : null,
+                liq: cryptoMetrics.liq24hUsd === null ? "Coinalyze API Key required" : null,
+                stable: cryptoMetrics.stableUsdtUsdcUsd === null ? "API not available" : null,
+              },
+            }),
+          });
+          console.log(`[API] Crypto metrics saved for ${reportDate}`);
+        } catch (err) {
+          console.warn(`[API] Failed to save crypto metrics:`, err);
+        }
+        
         console.log(`[API] Report generated successfully, ID: ${reportId}`);
         
         return {
@@ -207,6 +279,106 @@ export const appRouter = router({
         },
       };
     }),
+    
+    // 生成AI分析
+    generateAIAnalysis: protectedProcedure
+      .input(z.object({ reportId: z.number().optional() }))
+      .mutation(async ({ input }) => {
+        console.log("[API] Generating AI analysis...");
+        
+        try {
+          // 获取报告数据
+          let report;
+          if (input.reportId) {
+            report = await getReportById(input.reportId);
+          } else {
+            report = await getLatestReport();
+          }
+          
+          if (!report) {
+            return { success: false, message: "无报告数据", data: null };
+          }
+          
+          const snapshots = await getSnapshotsByReportId(report.id);
+          
+          // 获取加密指标趋势数据
+          let cryptoTrends: CryptoTrendData | null = null;
+          try {
+            const [d1, d7, d30] = await Promise.all([
+              getCryptoMetricsDaysAgo(1),
+              getCryptoMetricsDaysAgo(7),
+              getCryptoMetricsDaysAgo(30),
+            ]);
+            
+            const fundingSnapshot = snapshots.find(s => s.indicator === "crypto_funding");
+            const oiSnapshot = snapshots.find(s => s.indicator === "crypto_oi");
+            const liqSnapshot = snapshots.find(s => s.indicator === "crypto_liquidations");
+            const stableSnapshot = snapshots.find(s => s.indicator === "stablecoin");
+            
+            const current = {
+              funding: fundingSnapshot?.latestValue ? Number(fundingSnapshot.latestValue) : null,
+              oiUsd: oiSnapshot?.latestValue ? Number(oiSnapshot.latestValue) : null,
+              liq24hUsd: liqSnapshot?.latestValue ? Number(liqSnapshot.latestValue) : null,
+              stableUsdtUsdcUsd: stableSnapshot?.latestValue ? Number(stableSnapshot.latestValue) : null,
+            };
+            
+            const toMetrics = (m: typeof d1) => m ? {
+              funding: m.funding ? Number(m.funding) : null,
+              oiUsd: m.oiUsd ? Number(m.oiUsd) : null,
+              liq24hUsd: m.liq24hUsd ? Number(m.liq24hUsd) : null,
+              stableUsdtUsdcUsd: m.stableUsdtUsdcUsd ? Number(m.stableUsdtUsdcUsd) : null,
+            } : null;
+            
+            cryptoTrends = calculateCryptoTrends(current, toMetrics(d1), toMetrics(d7), toMetrics(d30));
+          } catch (err) {
+            console.warn("[API] Failed to calculate crypto trends for AI:", err);
+          }
+          
+          // 获取上一次报告的情景
+          const reports = await getReportHistory(2);
+          const previousReport = reports.length > 1 ? reports[1] : null;
+          
+          // 调用AI分析
+          const analysis = await generateAIAnalysis({
+            snapshots: snapshots.map(s => ({
+              indicator: s.indicator,
+              displayName: s.displayName,
+              latestValue: s.latestValue ? Number(s.latestValue) : null,
+              change1d: s.change1d ? Number(s.change1d) : null,
+              change7d: s.change7d ? Number(s.change7d) : null,
+              change30d: s.change30d ? Number(s.change30d) : null,
+              ma20: s.ma20 ? Number(s.ma20) : null,
+              aboveMa20: s.aboveMa20,
+              sparklineData: s.sparklineData || [],
+            })),
+            cryptoTrends,
+            currentRegime: report.regime,
+            currentStatus: report.status,
+            previousRegime: previousReport?.regime || null,
+            triggeredRules: (report.triggeredRules as string[]) || [],
+            untriggeredRules: (report.untriggeredRules as string[]) || [],
+            switches: {
+              marginBorrow: report.marginBorrow,
+              putSelling: report.putSelling,
+              spotPace: report.spotPace,
+            },
+          });
+          
+          console.log("[API] AI analysis generated successfully");
+          
+          return {
+            success: true,
+            data: analysis,
+          };
+        } catch (error) {
+          console.error("[API] Failed to generate AI analysis:", error);
+          return {
+            success: false,
+            message: `AI分析生成失败: ${error instanceof Error ? error.message : "未知错误"}`,
+            data: null,
+          };
+        }
+      }),
   }),
 
   // API配置管理

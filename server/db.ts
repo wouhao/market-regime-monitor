@@ -1,11 +1,12 @@
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { 
   InsertUser, users, 
   marketReports, InsertMarketReport, MarketReport,
   marketSnapshots, InsertMarketSnapshot, MarketSnapshot,
   apiConfigs, InsertApiConfig, ApiConfig,
-  systemSettings, InsertSystemSetting, SystemSetting
+  systemSettings, InsertSystemSetting, SystemSetting,
+  cryptoMetricsDaily, InsertCryptoMetricsDaily, CryptoMetricsDaily
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -300,4 +301,84 @@ export async function setSystemSetting(key: string, value: string, description?:
       description,
     });
   }
+}
+
+// ============ Crypto Metrics Daily Functions ============
+
+export async function upsertCryptoMetricsDaily(metrics: InsertCryptoMetricsDaily): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+  
+  // 使用upsert：如果日期已存在则更新，否则插入
+  const existing = await db
+    .select()
+    .from(cryptoMetricsDaily)
+    .where(eq(cryptoMetricsDaily.dateBjt, metrics.dateBjt))
+    .limit(1);
+  
+  if (existing.length > 0) {
+    await db
+      .update(cryptoMetricsDaily)
+      .set({
+        tsBjt: metrics.tsBjt,
+        funding: metrics.funding,
+        oiUsd: metrics.oiUsd,
+        liq24hUsd: metrics.liq24hUsd,
+        stableUsdtUsdcUsd: metrics.stableUsdtUsdcUsd,
+        sourceFunding: metrics.sourceFunding,
+        sourceOi: metrics.sourceOi,
+        sourceLiq: metrics.sourceLiq,
+        sourceStable: metrics.sourceStable,
+        notes: metrics.notes,
+      })
+      .where(eq(cryptoMetricsDaily.dateBjt, metrics.dateBjt));
+  } else {
+    await db.insert(cryptoMetricsDaily).values(metrics);
+  }
+}
+
+export async function getCryptoMetricsByDate(dateBjt: string): Promise<CryptoMetricsDaily | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const result = await db
+    .select()
+    .from(cryptoMetricsDaily)
+    .where(eq(cryptoMetricsDaily.dateBjt, dateBjt))
+    .limit(1);
+  
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getCryptoMetricsHistory(days: number = 30): Promise<CryptoMetricsDaily[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db
+    .select()
+    .from(cryptoMetricsDaily)
+    .orderBy(desc(cryptoMetricsDaily.dateBjt))
+    .limit(days);
+}
+
+// 获取指定天数前的指标数据（用于计算变化率）
+export async function getCryptoMetricsDaysAgo(daysAgo: number): Promise<CryptoMetricsDaily | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  // 计算目标日期（北京时间）
+  const now = new Date();
+  const bjTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  bjTime.setDate(bjTime.getDate() - daysAgo);
+  const targetDate = bjTime.toISOString().split("T")[0];
+  
+  const result = await db
+    .select()
+    .from(cryptoMetricsDaily)
+    .where(eq(cryptoMetricsDaily.dateBjt, targetDate))
+    .limit(1);
+  
+  return result.length > 0 ? result[0] : null;
 }

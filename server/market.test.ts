@@ -114,7 +114,7 @@ describe("Market Regime Classification", () => {
 });
 
 describe("Execution Switches Generation", () => {
-  it("should generate forbidden switches for risk_off regime", () => {
+  it("should generate risk_off switches with aggressive put selling", () => {
     const regime = {
       regime: "risk_off" as const,
       status: "confirmed" as const,
@@ -126,11 +126,12 @@ describe("Execution Switches Generation", () => {
     const switches = generateSwitches(regime);
 
     expect(switches.marginBorrow).toBe("forbidden");
-    expect(switches.putSelling).toBe("forbidden");
+    // Risk-off时卖Put激进（高波动环境下Put收益更高）
+    expect(switches.putSelling).toBe("aggressive");
     expect(switches.spotPace).toBe("pause");
   });
 
-  it("should generate aggressive switches for risk_on regime", () => {
+  it("should generate risk_on switches with helper put selling", () => {
     const regime = {
       regime: "risk_on" as const,
       status: "confirmed" as const,
@@ -142,7 +143,8 @@ describe("Execution Switches Generation", () => {
     const switches = generateSwitches(regime);
 
     expect(switches.marginBorrow).toBe("allowed");
-    expect(switches.putSelling).toBe("aggressive");
+    // Risk-on时卖Put辅助（正常环境下保守操作）
+    expect(switches.putSelling).toBe("helper");
     expect(switches.spotPace).toBe("fast");
   });
 

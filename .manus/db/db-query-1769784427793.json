@@ -1,0 +1,9 @@
+{
+  "query": "SHOW TABLES LIKE 'crypto_metrics_daily';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute SHOW TABLES LIKE 'crypto_metrics_daily';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1542
+}

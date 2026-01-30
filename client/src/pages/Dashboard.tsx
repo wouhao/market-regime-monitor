@@ -17,16 +17,26 @@ import {
   Zap,
   BarChart3,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  Brain,
+  Sparkles,
+  AlertOctagon
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
+import { Streamdown } from "streamdown";
 
 // 指标值格式化函数
-function formatIndicatorValue(indicator: string, value: number): string {
-  // Funding Rate 用百分比格式显示
+function formatIndicatorValue(indicator: string, value: number | null | undefined): string {
+  // 处理null/undefined值
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  
+  // Funding Rate 用百分比格式显示，保留6位小数
   if (indicator === "crypto_funding") {
-    return `${(value * 100).toFixed(4)}%`;
+    // value 已经是百分比形式（如 0.1714 表示 0.1714%）
+    return `${value.toFixed(6)}%`;
   }
   // 清算数据用美元格式
   if (indicator === "crypto_liquidations") {
@@ -118,6 +128,15 @@ const dataSourceInfo: Record<string, { name: string; source: string; url: string
 
 export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<{
+    summary: string;
+    evidenceChain: string[];
+    leverageJudgment: string;
+    switchRationale: { marginBorrow: string; putSelling: string; spotPace: string };
+    riskAlerts: string[];
+    fullAnalysis: string;
+  } | null>(null);
   
   const { data: latestData, isLoading, refetch } = trpc.market.getLatest.useQuery();
   const generateMutation = trpc.market.generate.useMutation({
@@ -145,7 +164,29 @@ export default function Dashboard() {
 
   const handleRefresh = () => {
     refetch();
+    setAiAnalysis(null); // 清除AI分析
     toast.info("数据已刷新");
+  };
+  
+  const aiAnalysisMutation = trpc.market.generateAIAnalysis.useMutation({
+    onSuccess: (result) => {
+      if (result.success && result.data) {
+        setAiAnalysis(result.data);
+        toast.success("AI分析已生成");
+      } else {
+        toast.error("AI分析失败", { description: result.message });
+      }
+      setIsAnalyzing(false);
+    },
+    onError: (error) => {
+      toast.error("AI分析失败", { description: error.message });
+      setIsAnalyzing(false);
+    },
+  });
+  
+  const handleAIAnalysis = () => {
+    setIsAnalyzing(true);
+    aiAnalysisMutation.mutate({});
   };
 
   if (isLoading) {
@@ -189,6 +230,24 @@ export default function Dashboard() {
               <>
                 <Activity className="h-4 w-4 mr-2" />
                 生成报告
+              </>
+            )}
+          </Button>
+          <Button 
+            size="sm" 
+            variant="secondary"
+            onClick={handleAIAnalysis}
+            disabled={isAnalyzing || !report}
+          >
+            {isAnalyzing ? (
+              <>
+                <Brain className="h-4 w-4 mr-2 animate-pulse" />
+                分析中...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                AI 解读
               </>
             )}
           </Button>
@@ -376,7 +435,7 @@ export default function Dashboard() {
                           </td>
                           <td className="text-right py-3 px-2 font-mono">
                             {snapshot.latestValue !== null && snapshot.latestValue !== undefined
-                              ? formatIndicatorValue(snapshot.indicator, snapshot.latestValue)
+                              ? formatIndicatorValue(snapshot.indicator, Number(snapshot.latestValue))
                               : <span className="text-yellow-500">--</span>}
                           </td>
                           <td className="text-right py-3 px-2">
@@ -494,6 +553,96 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+          
+          {/* AI 解读 */}
+          {aiAnalysis && (
+            <Card className="border-purple-500/30 bg-purple-500/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-purple-400">
+                  <Brain className="h-5 w-5" />
+                  AI 解读
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* 一句话结论 */}
+                <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                  <h4 className="font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    结论
+                  </h4>
+                  <p className="text-sm leading-relaxed">{aiAnalysis.summary}</p>
+                </div>
+                
+                {/* 证据链 */}
+                <div>
+                  <h4 className="font-semibold text-muted-foreground mb-2 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    证据链
+                  </h4>
+                  <ul className="space-y-1">
+                    {aiAnalysis.evidenceChain.map((evidence, index) => (
+                      <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-purple-400">•</span>
+                        {evidence}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                
+                {/* 杠杆/流动性判定 */}
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <h4 className="font-semibold text-muted-foreground mb-1 text-sm">杠杆/流动性判定</h4>
+                  <p className="text-sm">{aiAnalysis.leverageJudgment}</p>
+                </div>
+                
+                {/* 执行开关建议 */}
+                <div>
+                  <h4 className="font-semibold text-muted-foreground mb-2 flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    执行开关建议
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    {aiAnalysis.switchRationale.marginBorrow && (
+                      <div className="flex items-start gap-2">
+                        <Badge variant="outline" className="shrink-0">Margin</Badge>
+                        <span className="text-muted-foreground">{aiAnalysis.switchRationale.marginBorrow}</span>
+                      </div>
+                    )}
+                    {aiAnalysis.switchRationale.putSelling && (
+                      <div className="flex items-start gap-2">
+                        <Badge variant="outline" className="shrink-0">Put</Badge>
+                        <span className="text-muted-foreground">{aiAnalysis.switchRationale.putSelling}</span>
+                      </div>
+                    )}
+                    {aiAnalysis.switchRationale.spotPace && (
+                      <div className="flex items-start gap-2">
+                        <Badge variant="outline" className="shrink-0">Spot</Badge>
+                        <span className="text-muted-foreground">{aiAnalysis.switchRationale.spotPace}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* 风险提示 */}
+                {aiAnalysis.riskAlerts.length > 0 && (
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <h4 className="font-semibold text-red-400 mb-2 flex items-center gap-2">
+                      <AlertOctagon className="h-4 w-4" />
+                      风险提示
+                    </h4>
+                    <ul className="space-y-1">
+                      {aiAnalysis.riskAlerts.map((alert, index) => (
+                        <li key={index} className="text-sm text-red-300 flex items-start gap-2">
+                          <span>⚠️</span>
+                          {alert}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

@@ -90,3 +90,29 @@ export const systemSettings = mysqlTable("system_settings", {
 
 export type SystemSetting = typeof systemSettings.$inferSelect;
 export type InsertSystemSetting = typeof systemSettings.$inferInsert;
+
+/**
+ * Crypto Metrics Daily - 存储加密指标日频快照（用于计算趋势变化）
+ */
+export const cryptoMetricsDaily = mysqlTable("crypto_metrics_daily", {
+  id: int("id").autoincrement().primaryKey(),
+  dateBjt: varchar("dateBjt", { length: 10 }).notNull().unique(), // YYYY-MM-DD 北京时间
+  tsBjt: int("tsBjt").notNull(), // Unix时间戳(秒)
+  // 加密指标值
+  funding: decimal("funding", { precision: 20, scale: 10 }), // BTC Funding Rate (%)
+  oiUsd: decimal("oiUsd", { precision: 20, scale: 2 }), // BTC Open Interest (USD)
+  liq24hUsd: decimal("liq24hUsd", { precision: 20, scale: 2 }), // BTC Liquidations 24h (USD)
+  stableUsdtUsdcUsd: decimal("stableUsdtUsdcUsd", { precision: 20, scale: 2 }), // Stablecoin Supply (USD)
+  // 数据源元数据
+  sourceFunding: varchar("sourceFunding", { length: 50 }),
+  sourceOi: varchar("sourceOi", { length: 50 }),
+  sourceLiq: varchar("sourceLiq", { length: 100 }),
+  sourceStable: varchar("sourceStable", { length: 50 }),
+  // 备注（JSON字符串：missing_reason, symbol, unit, asof等）
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CryptoMetricsDaily = typeof cryptoMetricsDaily.$inferSelect;
+export type InsertCryptoMetricsDaily = typeof cryptoMetricsDaily.$inferInsert;

@@ -399,11 +399,11 @@ async function fetchCoinalyzeLiquidations(apiKey: string): Promise<CoinalyzeLiqu
       });
       
       if (marketsResponse.data && Array.isArray(marketsResponse.data)) {
-        // 过滤出所有BTC永续合约（PERP类型）
+        // 过滤出所有BTC永续合约（使用is_perpetual字段）
         btcSymbols = marketsResponse.data
-          .filter((market: { symbol?: string; base_asset?: string; type?: string }) => 
+          .filter((market: { symbol?: string; base_asset?: string; is_perpetual?: boolean }) => 
             market.base_asset === "BTC" && 
-            market.type === "perpetual" &&
+            market.is_perpetual === true &&
             market.symbol
           )
           .map((market: { symbol: string }) => market.symbol);
@@ -449,8 +449,9 @@ async function fetchCoinalyzeLiquidations(apiKey: string): Promise<CoinalyzeLiqu
     const from = now - 48 * 60 * 60; // 48小时前
     
     // 聚合所有交易所的数据
-    const now24hAgo = (now - 24 * 60 * 60) * 1000; // 转换为毫秒
-    const now7dAgo = (now - 7 * 24 * 60 * 60) * 1000;
+    // Coinalyze API返回的时间戳是秒，不是毫秒
+    const now24hAgo = now - 24 * 60 * 60; // 秒
+    const now7dAgo = now - 7 * 24 * 60 * 60; // 秒
     
     let long24h = 0;
     let short24h = 0;
@@ -482,11 +483,11 @@ async function fetchCoinalyzeLiquidations(apiKey: string): Promise<CoinalyzeLiqu
             const history = exchangeData.history || [];
             
             for (const point of history) {
-              const t = point.t; // 时间戳 (毫秒)
+              const t = point.t; // 时间戳 (秒)
               const l = point.l || 0; // long liquidations (USD)
               const s = point.s || 0; // short liquidations (USD)
               
-              // 7D 合计
+              // 7D 合计 (时间戳是秒)
               if (t >= now7dAgo) {
                 total7d += l + s;
                 
@@ -963,4 +964,117 @@ export async function generateMarketReport(
     dataQuality,
     reportContent,
   };
+}
+
+/**
+ * 提取加密指标数据（用于保存到历史表）
+ */
+export function extractCryptoMetrics(snapshots: MarketIndicator[]): {
+  funding: number | null;
+  oiUsd: number | null;
+  liq24hUsd: number | null;
+  stableUsdtUsdcUsd: number | null;
+  sources: {
+    funding: string;
+    oi: string;
+    liq: string;
+    stable: string;
+  };
+} {
+  const fundingSnapshot = snapshots.find(s => s.indicator === "crypto_funding");
+  const oiSnapshot = snapshots.find(s => s.indicator === "crypto_oi");
+  const liqSnapshot = snapshots.find(s => s.indicator === "crypto_liquidations");
+  const stableSnapshot = snapshots.find(s => s.indicator === "stablecoin");
+  
+  return {
+    funding: fundingSnapshot?.latestValue ?? null,
+    oiUsd: oiSnapshot?.latestValue ?? null,
+    liq24hUsd: liqSnapshot?.latestValue ?? null,
+    stableUsdtUsdcUsd: stableSnapshot?.latestValue ?? null,
+    sources: {
+      funding: "Binance/OKX",
+      oi: "Binance/OKX",
+      liq: "Coinalyze (multi-exchange)",
+      stable: "DefiLlama",
+    },
+  };
+}
+
+/**
+ * 计算加密指标趋势变化
+ */
+export interface CryptoTrendData {
+  funding1d: number | null;
+  funding7d: number | null;
+  funding30d: number | null;
+  oi1d: number | null;
+  oi7d: number | null;
+  oi30d: number | null;
+  liq1d: number | null;
+  liq7d: number | null;
+  liq30d: number | null;
+  stable1d: number | null;
+  stable7d: number | null;
+  stable30d: number | null;
+}
+
+export function calculateCryptoTrends(
+  current: { funding: number | null; oiUsd: number | null; liq24hUsd: number | null; stableUsdtUsdcUsd: number | null },
+  d1: { funding: number | null; oiUsd: number | null; liq24hUsd: number | null; stableUsdtUsdcUsd: number | null } | null,
+  d7: { funding: number | null; oiUsd: number | null; liq24hUsd: number | null; stableUsdtUsdcUsd: number | null } | null,
+  d30: { funding: number | null; oiUsd: number | null; liq24hUsd: number | null; stableUsdtUsdcUsd: number | null } | null
+): CryptoTrendData {
+  // Funding Rate 使用差值而非百分比变化
+  const calcFundingDiff = (curr: number | null, past: number | null): number | null => {
+    if (curr === null || past === null) return null;
+    return curr - past;
+  };
+  
+  // 其他指标使用百分比变化
+  const calcPctChange = (curr: number | null, past: number | null): number | null => {
+    if (curr === null || past === null || past === 0) return null;
+    return ((curr - past) / Math.abs(past)) * 100;
+  };
+  
+  return {
+    funding1d: d1 ? calcFundingDiff(current.funding, d1.funding) : null,
+    funding7d: d7 ? calcFundingDiff(current.funding, d7.funding) : null,
+    funding30d: d30 ? calcFundingDiff(current.funding, d30.funding) : null,
+    oi1d: d1 ? calcPctChange(current.oiUsd, d1.oiUsd) : null,
+    oi7d: d7 ? calcPctChange(current.oiUsd, d7.oiUsd) : null,
+    oi30d: d30 ? calcPctChange(current.oiUsd, d30.oiUsd) : null,
+    liq1d: d1 ? calcPctChange(current.liq24hUsd, d1.liq24hUsd) : null,
+    liq7d: d7 ? calcPctChange(current.liq24hUsd, d7.liq24hUsd) : null,
+    liq30d: d30 ? calcPctChange(current.liq24hUsd, d30.liq24hUsd) : null,
+    stable1d: d1 ? calcPctChange(current.stableUsdtUsdcUsd, d1.stableUsdtUsdcUsd) : null,
+    stable7d: d7 ? calcPctChange(current.stableUsdtUsdcUsd, d7.stableUsdtUsdcUsd) : null,
+    stable30d: d30 ? calcPctChange(current.stableUsdtUsdcUsd, d30.stableUsdtUsdcUsd) : null,
+  };
+}
+
+/**
+ * 生成Sparkline趋势线字符
+ */
+export function generateSparkline(d1: number | null, d7: number | null, d30: number | null, isFunding: boolean = false): string {
+  const getChar = (value: number | null): string => {
+    if (value === null) return "·";
+    
+    // Funding Rate 使用不同的阈值（差值）
+    if (isFunding) {
+      if (value <= -0.10) return "▁";
+      if (value <= -0.02) return "▂";
+      if (value < 0.02) return "▃";
+      if (value < 0.10) return "▆";
+      return "█";
+    }
+    
+    // 其他指标使用百分比阈值
+    if (value <= -5) return "▁";
+    if (value <= -1) return "▂";
+    if (value < 1) return "▃";
+    if (value < 5) return "▆";
+    return "█";
+  };
+  
+  return `${getChar(d1)}${getChar(d7)}${getChar(d30)}`;
 }

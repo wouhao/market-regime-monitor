@@ -81,3 +81,27 @@
 - [x] 使用Coinalyze /future-markets接口获取所有BTC永续合约
 - [x] 聚合全市场清算数据（不仅限于Binance+OKX+Bybit）
 - [x] 在日志中记录聚合的交易所列表
+
+## Bug修复 (2026-01-30 - Liquidations数据为0)
+- [x] 诊断Coinalyze API Key配置后数据仍为0的问题 - 原因：1) is_perpetual字段过滤错误 2) 时间戳单位错误（秒vs毫秒）
+- [x] 修复Liquidations数据获取逻辑 - 现在正确获取$272.8M 24h清算数据
+
+## 优化 (2026-01-30 - 显示格式)
+- [x] BTC Funding Rate 保留6位小数显示
+
+## 新功能 (2026-01-30 - 加密指标趋势化)
+- [x] 创建crypto_metrics_daily历史快照表
+- [x] 实现历史数据存储（每日upsert）
+- [x] 实现趋势变化列计算（1D/7D/30D） - 后端已实现，前端等待历史数据积累
+- [x] 实现sparkline趋势线生成 - 后端已实现generateSparkline函数
+- [x] 严格区分missing和0（缺失显示--而非0） - 前端已修复
+
+## 新功能 (2026-01-30 - AI分析)
+- [x] 实现AI解读模块 (aiAnalysisService.ts)
+- [x] 三核心组合分析（QQQ/GLD/BTC）
+- [x] 系统压力确认组合分析（VIX/HY OAS/Real yield）
+- [x] 加密去杠杆/踩踏组合分析（Funding/OI/Liquidations）
+- [x] 边际流动性组合分析（Stablecoin supply）
+- [x] 输出执行开关建议及理由
+- [x] watch vs confirmed去噪机制
+- [x] 前端AI解读按钮和卡片UI

@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `crypto_metrics_daily` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `dateBjt` varchar(10) NOT NULL,\n  `tsBjt` int NOT NULL,\n  `funding` decimal(20, 10),\n  `oiUsd` decimal(20, 2),\n  `liq24hUsd` decimal(20, 2),\n  `stableUsdtUsdcUsd` decimal(20, 2),\n  `sourceFunding` varchar(50),\n  `sourceOi` varchar(50),\n  `sourceLiq` varchar(100),\n  `sourceStable` varchar(50),\n  `notes` text,\n  `createdAt` timestamp NOT NULL DEFAULT (now()),\n  `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n  CONSTRAINT `crypto_metrics_daily_id` PRIMARY KEY(`id`),\n  CONSTRAINT `crypto_metrics_daily_dateBjt_unique` UNIQUE(`dateBjt`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute CREATE TABLE `crypto_metrics_daily` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `dateBjt` varchar(10) NOT NULL,\n  `tsBjt` int NOT NULL,\n  `funding` decimal(20, 10),\n  `oiUsd` decimal(20, 2),\n  `liq24hUsd` decimal(20, 2),\n  `stableUsdtUsdcUsd` decimal(20, 2),\n  `sourceFunding` varchar(50),\n  `sourceOi` varchar(50),\n  `sourceLiq` varchar(100),\n  `sourceStable` varchar(50),\n  `notes` text,\n  `createdAt` timestamp NOT NULL DEFAULT (now()),\n  `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n  CONSTRAINT `crypto_metrics_daily_id` PRIMARY KEY(`id`),\n  CONSTRAINT `crypto_metrics_daily_dateBjt_unique` UNIQUE(`dateBjt`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2597
+}
