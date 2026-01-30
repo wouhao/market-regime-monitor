@@ -56,7 +56,7 @@ export default function History() {
               <Card 
                 key={report.id}
                 className="hover:bg-muted/50 transition-colors cursor-pointer"
-                onClick={() => setLocation(`/report/${report.reportDate}`)}
+                onClick={() => setLocation(`/report/${report.id}`)}
               >
                 <CardContent className="flex items-center justify-between py-4">
                   <div className="flex items-center gap-4">

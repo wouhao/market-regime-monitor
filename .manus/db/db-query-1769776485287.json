@@ -1,0 +1,28 @@
+{
+  "query": "SELECT id, reportDate, regime, status, confidence, dataQuality, DATE_FORMAT(createdAt, '%Y-%m-%d %H:%i:%s') as created FROM market_reports ORDER BY id DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute SELECT id, reportDate, regime, status, confidence, dataQuality, DATE_FORMAT(createdAt, '%Y-%m-%d %H:%i:%s') as created FROM market_reports ORDER BY id DESC;",
+  "rows": [
+    {
+      "id": "30001",
+      "reportDate": "2026-01-30",
+      "regime": "risk_on",
+      "status": "confirmed",
+      "confidence": "100.00",
+      "dataQuality": "80.00",
+      "created": "2026-01-30 12:27:49"
+    },
+    {
+      "id": "1",
+      "reportDate": "2026-01-30",
+      "regime": "risk_on",
+      "status": "watch",
+      "confidence": "93.33",
+      "dataQuality": "40.00",
+      "created": "2026-01-30 11:51:33"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\treportDate\tregime\tstatus\tconfidence\tdataQuality\tcreated\n30001\t2026-01-30\trisk_on\tconfirmed\t100.00\t80.00\t2026-01-30 12:27:49\n1\t2026-01-30\trisk_on\twatch\t93.33\t40.00\t2026-01-30 11:51:33\n",
+  "stderr": "",
+  "execution_time_ms": 1544
+}

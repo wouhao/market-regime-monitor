@@ -135,6 +135,19 @@ export async function getReportByDate(date: string): Promise<MarketReport | null
   return result.length > 0 ? result[0] : null;
 }
 
+export async function getReportById(id: number): Promise<MarketReport | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const result = await db
+    .select()
+    .from(marketReports)
+    .where(eq(marketReports.id, id))
+    .limit(1);
+  
+  return result.length > 0 ? result[0] : null;
+}
+
 export async function getReportHistory(limit: number = 30): Promise<MarketReport[]> {
   const db = await getDb();
   if (!db) return [];

@@ -15,7 +15,9 @@ import {
   Activity,
   Shield,
   Zap,
-  BarChart3
+  BarChart3,
+  AlertCircle,
+  ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -62,6 +64,20 @@ const switchStatusConfig: Record<string, { label: string; className: string }> =
   fast: { label: "快速", className: "switch-fast" },
 };
 
+// 数据源信息配置
+const dataSourceInfo: Record<string, { name: string; source: string; url: string; description: string }> = {
+  "BTC-USD": { name: "Bitcoin", source: "Yahoo Finance", url: "", description: "免费，无需API Key" },
+  "QQQ": { name: "Nasdaq-100 ETF", source: "Yahoo Finance", url: "", description: "免费，无需API Key" },
+  "GLD": { name: "SPDR Gold", source: "Yahoo Finance", url: "", description: "免费，无需API Key" },
+  "DGS10": { name: "10Y Treasury", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
+  "VIXCLS": { name: "VIX Index", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
+  "DFII10": { name: "10Y Real Yield", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
+  "BAMLH0A0HYM2": { name: "HY OAS", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
+  "crypto_funding": { name: "BTC Funding Rate", source: "CoinGlass", url: "https://www.coinglass.com/zh/pricing", description: "需要CoinGlass API Key（付费）" },
+  "crypto_oi": { name: "BTC Open Interest", source: "CoinGlass", url: "https://www.coinglass.com/zh/pricing", description: "需要CoinGlass API Key（付费）" },
+  "stablecoin": { name: "Stablecoin Supply", source: "DefiLlama", url: "", description: "免费，无需API Key" },
+};
+
 export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   
@@ -100,6 +116,11 @@ export default function Dashboard() {
 
   const report = latestData?.data;
   const regime = report?.regime ? regimeConfig[report.regime as keyof typeof regimeConfig] : null;
+  
+  // 计算缺失的数据指标
+  const snapshots = report?.snapshots as any[] || [];
+  const missingIndicators = snapshots.filter(s => s.latestValue === null);
+  const validIndicators = snapshots.filter(s => s.latestValue !== null);
 
   return (
     <div className="space-y-6">
@@ -203,12 +224,13 @@ export default function Dashboard() {
                   value={Number(report.dataQuality)} 
                   className="mt-3 h-2"
                 />
-                <p className="text-sm text-muted-foreground mt-3">
-                  {Number(report.dataQuality) >= 80 
-                    ? "数据完整度良好" 
-                    : Number(report.dataQuality) >= 50 
-                      ? "部分数据缺失" 
-                      : "数据严重不足"}
+                <p className="text-sm text-muted-foreground mt-2">
+                  {validIndicators.length}/{snapshots.length} 指标有效
+                  {missingIndicators.length > 0 && (
+                    <span className="text-yellow-500 ml-2">
+                      ({missingIndicators.length} 项缺失)
+                    </span>
+                  )}
                 </p>
               </CardContent>
             </Card>
@@ -235,7 +257,118 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* 执行开关 */}
+          {/* 缺失数据提示 - 仅在有缺失时显示 */}
+          {missingIndicators.length > 0 && (
+            <Card className="border-yellow-500/50 bg-yellow-500/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-yellow-500">
+                  <AlertCircle className="h-5 w-5" />
+                  缺失数据详情
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  以下 {missingIndicators.length} 项数据未能获取，请检查对应的 API Key 配置：
+                </p>
+                <div className="space-y-2">
+                  {missingIndicators.map((indicator: any, index: number) => {
+                    const info = dataSourceInfo[indicator.indicator];
+                    return (
+                      <div 
+                        key={index}
+                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                      >
+                        <div>
+                          <div className="font-medium">{indicator.displayName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {indicator.indicator} · 数据源: {info?.source || "未知"}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-yellow-500">
+                            {info?.description || "需要配置"}
+                          </span>
+                          {info?.url && (
+                            <a 
+                              href={info.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-400 hover:text-blue-300"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 市场快照 - 移到执行开关上方 */}
+          {report.snapshots && (report.snapshots as any[]).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  市场快照
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 px-2 font-medium">指标</th>
+                        <th className="text-right py-3 px-2 font-medium">最新值</th>
+                        <th className="text-right py-3 px-2 font-medium">1D</th>
+                        <th className="text-right py-3 px-2 font-medium">7D</th>
+                        <th className="text-right py-3 px-2 font-medium">30D</th>
+                        <th className="text-center py-3 px-2 font-medium">MA20</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(report.snapshots as any[]).map((snapshot, index) => (
+                        <tr key={index} className="border-b border-border/50">
+                          <td className="py-3 px-2">
+                            <div className="font-medium">{snapshot.displayName}</div>
+                            <div className="text-xs text-muted-foreground">{snapshot.indicator}</div>
+                          </td>
+                          <td className="text-right py-3 px-2 font-mono">
+                            {snapshot.latestValue 
+                              ? Number(snapshot.latestValue).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                              : <span className="text-yellow-500">--</span>}
+                          </td>
+                          <td className="text-right py-3 px-2">
+                            <ChangeCell value={snapshot.change1d} />
+                          </td>
+                          <td className="text-right py-3 px-2">
+                            <ChangeCell value={snapshot.change7d} />
+                          </td>
+                          <td className="text-right py-3 px-2">
+                            <ChangeCell value={snapshot.change30d} />
+                          </td>
+                          <td className="text-center py-3 px-2">
+                            {snapshot.aboveMa20 === true ? (
+                              <TrendingUp className="h-4 w-4 text-green-400 inline" />
+                            ) : snapshot.aboveMa20 === false ? (
+                              <TrendingDown className="h-4 w-4 text-red-400 inline" />
+                            ) : (
+                              <span className="text-muted-foreground">--</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 执行开关 - 移到市场快照下方 */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -323,67 +456,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
-
-          {/* 市场快照 */}
-          {report.snapshots && (report.snapshots as any[]).length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  市场快照
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-3 px-2 font-medium">指标</th>
-                        <th className="text-right py-3 px-2 font-medium">最新值</th>
-                        <th className="text-right py-3 px-2 font-medium">1D</th>
-                        <th className="text-right py-3 px-2 font-medium">7D</th>
-                        <th className="text-right py-3 px-2 font-medium">30D</th>
-                        <th className="text-center py-3 px-2 font-medium">MA20</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(report.snapshots as any[]).map((snapshot, index) => (
-                        <tr key={index} className="border-b border-border/50">
-                          <td className="py-3 px-2">
-                            <div className="font-medium">{snapshot.displayName}</div>
-                            <div className="text-xs text-muted-foreground">{snapshot.indicator}</div>
-                          </td>
-                          <td className="text-right py-3 px-2 font-mono">
-                            {snapshot.latestValue 
-                              ? Number(snapshot.latestValue).toLocaleString(undefined, { maximumFractionDigits: 2 })
-                              : "--"}
-                          </td>
-                          <td className="text-right py-3 px-2">
-                            <ChangeCell value={snapshot.change1d} />
-                          </td>
-                          <td className="text-right py-3 px-2">
-                            <ChangeCell value={snapshot.change7d} />
-                          </td>
-                          <td className="text-right py-3 px-2">
-                            <ChangeCell value={snapshot.change30d} />
-                          </td>
-                          <td className="text-center py-3 px-2">
-                            {snapshot.aboveMa20 === true ? (
-                              <TrendingUp className="h-4 w-4 text-green-400 inline" />
-                            ) : snapshot.aboveMa20 === false ? (
-                              <TrendingDown className="h-4 w-4 text-red-400 inline" />
-                            ) : (
-                              <span className="text-muted-foreground">--</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
     </div>

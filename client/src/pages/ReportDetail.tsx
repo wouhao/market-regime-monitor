@@ -9,11 +9,12 @@ import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 
 export default function ReportDetail() {
-  const params = useParams<{ date: string }>();
+  const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   
-  const { data, isLoading } = trpc.market.getByDate.useQuery({ 
-    date: params.date || "" 
+  // 使用ID获取报告
+  const { data, isLoading } = trpc.market.getById.useQuery({ 
+    id: parseInt(params.id || "0", 10)
   });
 
   const handleCopyMarkdown = () => {
@@ -41,7 +42,7 @@ export default function ReportDetail() {
             <FileText className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">报告不存在</h3>
             <p className="text-muted-foreground text-center">
-              未找到 {params.date} 的报告
+              未找到 ID 为 {params.id} 的报告
             </p>
           </CardContent>
         </Card>

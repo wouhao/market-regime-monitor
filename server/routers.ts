@@ -14,6 +14,7 @@ import {
   saveMarketSnapshots,
   getLatestReport,
   getReportByDate,
+  getReportById,
   getReportHistory,
   getSnapshotsByReportId,
   getApiConfigs,
@@ -67,6 +68,28 @@ export const appRouter = router({
         
         if (!report) {
           return { success: false, message: "该日期无报告", data: null };
+        }
+        
+        const snapshots = await getSnapshotsByReportId(report.id);
+        
+        return {
+          success: true,
+          data: {
+            ...report,
+            snapshots,
+          },
+        };
+      }),
+
+    // 获取指定ID的报告
+    getById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        console.log(`[API] Getting report by ID: ${input.id}`);
+        const report = await getReportById(input.id);
+        
+        if (!report) {
+          return { success: false, message: "报告不存在", data: null };
         }
         
         const snapshots = await getSnapshotsByReportId(report.id);
