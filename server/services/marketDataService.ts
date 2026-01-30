@@ -127,7 +127,8 @@ async function fetchFredData(seriesId: string, apiKey: string): Promise<{ prices
 }
 
 /**
- * 从CoinGlass获取数据
+ * 从CoinGlass V4 API获取数据
+ * 使用 exchange-list 接口获取实时数据（爱好版可用）
  */
 async function fetchCoinGlassData(dataType: string, apiKey: string): Promise<number | null> {
   try {
@@ -136,21 +137,71 @@ async function fetchCoinGlassData(dataType: string, apiKey: string): Promise<num
       return null;
     }
     
+    // V4 API 基础地址
+    const baseUrl = "https://open-api-v4.coinglass.com/api/futures";
     let url = "";
+    
     if (dataType === "funding") {
-      url = "https://open-api.coinglass.com/public/v2/funding";
+      // 币种资金费率-交易所列表接口（爱好版可用）
+      url = `${baseUrl}/funding-rate/exchange-list?symbol=BTC`;
     } else if (dataType === "oi") {
-      url = "https://open-api.coinglass.com/public/v2/open_interest";
+      // 币种交易所持仓接口（爱好版可用）
+      url = `${baseUrl}/open-interest/exchange-list?symbol=BTC`;
     }
     
+    console.log(`[CoinGlass] Fetching ${dataType} from: ${url}`);
+    
     const response = await axios.get(url, {
-      headers: { "coinglassSecret": apiKey },
-      timeout: 10000,
+      headers: { 
+        "CG-API-KEY": apiKey,
+        "accept": "application/json"
+      },
+      timeout: 15000,
     });
     
-    return response.data?.data?.[0]?.rate || null;
-  } catch (error) {
-    console.error(`[CoinGlass] Failed to fetch ${dataType}:`, error);
+    console.log(`[CoinGlass] Response for ${dataType}:`, JSON.stringify(response.data).slice(0, 500));
+    
+    if (response.data?.code !== "0") {
+      console.error(`[CoinGlass] API error for ${dataType}:`, response.data?.msg);
+      return null;
+    }
+    
+    const data = response.data?.data;
+    if (!data || data.length === 0) {
+      console.warn(`[CoinGlass] No data returned for ${dataType}`);
+      return null;
+    }
+    
+    if (dataType === "funding") {
+      // 从返回数据中查找 BTC 的资金费率
+      // 数据结构: [{ symbol: "BTC", stablecoin_margin_list: [{ exchange: "Binance", funding_rate: 0.007343 }] }]
+      const btcData = data.find((item: { symbol: string }) => item.symbol === "BTC");
+      if (btcData?.stablecoin_margin_list?.length > 0) {
+        // 获取 Binance 的资金费率，或者第一个交易所的
+        const binanceData = btcData.stablecoin_margin_list.find(
+          (ex: { exchange: string }) => ex.exchange === "Binance"
+        ) || btcData.stablecoin_margin_list[0];
+        const rate = parseFloat(binanceData?.funding_rate);
+        console.log(`[CoinGlass] Funding rate from ${binanceData?.exchange}: ${rate}`);
+        return isNaN(rate) ? null : rate; // 已经是百分比格式
+      }
+      return null;
+    } else if (dataType === "oi") {
+      // 从返回数据中查找汇总的持仓量
+      // 数据结构: [{ exchange: "All", symbol: "BTC", open_interest_usd: 57437891724.5572 }]
+      const allData = data.find((item: { exchange: string }) => item.exchange === "All");
+      if (allData?.open_interest_usd) {
+        const oi = parseFloat(allData.open_interest_usd);
+        console.log(`[CoinGlass] Total Open Interest: ${oi}`);
+        return isNaN(oi) ? null : oi;
+      }
+      return null;
+    }
+    
+    return null;
+  } catch (error: unknown) {
+    const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
+    console.error(`[CoinGlass] Failed to fetch ${dataType}:`, axiosError.response?.status, axiosError.response?.data || axiosError.message);
     return null;
   }
 }

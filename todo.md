@@ -41,3 +41,9 @@
 
 ## 优化 (2026-01-30)
 - [x] 布局优化 - 将市场快照移到执行开关上方
+
+## Bug修复 (2026-01-30 - CoinGlass API)
+- [x] CoinGlass API版本错误 - 从V2更新到V4
+- [x] 请求头错误 - 从coinglassSecret改为CG-API-KEY
+- [x] API地址错误 - 从open-api.coinglass.com改为open-api-v4.coinglass.com
+- [x] API接口错误 - 从history接口改为exchange-list接口（爱好版可用）
