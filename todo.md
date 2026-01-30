@@ -1,0 +1,36 @@
+# Market Regime Monitor - TODO
+
+## 数据库模型
+- [x] 市场报告表 (market_reports) - 存储每日报告
+- [x] 市场快照表 (market_snapshots) - 存储指标数据
+- [x] API配置表 (api_configs) - 存储API密钥配置
+
+## 后端API
+- [x] 数据抓取模块 (FRED, Yahoo Finance, CoinGlass, DefiLlama)
+- [x] 数据处理模块 (变化率计算、MA穿越检测)
+- [x] 情景判定引擎 (A-F规则、Risk-on/Risk-off/Base)
+- [x] 执行开关生成器
+- [x] 报告生成API (POST /api/generate)
+- [x] 最新报告API (GET /api/latest)
+- [x] 历史报告API (GET /api/history)
+- [x] 系统状态API (GET /api/status)
+- [x] API配置管理接口
+
+## 前端界面
+- [x] 仪表盘布局 (DashboardLayout)
+- [x] 当前情景卡片 (Risk-on/Risk-off/Base + 置信度)
+- [x] 执行开关面板 (保证金借款、卖Put策略、现货节奏)
+- [x] 市场快照表格 (BTC、QQQ、GLD、VIX等指标)
+- [x] 判定规则列表 (A-F规则触发状态)
+- [x] 数据质量进度条
+- [x] 手动生成报告按钮
+- [x] 历史报告页面
+- [x] 报告详情页面 (Markdown渲染)
+- [x] API配置管理页面
+
+## 定时任务
+- [x] 定时任务配置界面
+
+## 测试
+- [x] 后端API单元测试
+- [x] 前端功能验证

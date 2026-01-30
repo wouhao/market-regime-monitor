@@ -1,6 +1,12 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { 
+  InsertUser, users, 
+  marketReports, InsertMarketReport, MarketReport,
+  marketSnapshots, InsertMarketSnapshot, MarketSnapshot,
+  apiConfigs, InsertApiConfig, ApiConfig,
+  systemSettings, InsertSystemSetting, SystemSetting
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -17,6 +23,8 @@ export async function getDb() {
   }
   return _db;
 }
+
+// ============ User Functions ============
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
@@ -89,4 +97,194 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ============ Market Report Functions ============
+
+export async function saveMarketReport(report: InsertMarketReport): Promise<number> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+  
+  const result = await db.insert(marketReports).values(report);
+  return result[0].insertId;
+}
+
+export async function getLatestReport(): Promise<MarketReport | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const result = await db
+    .select()
+    .from(marketReports)
+    .orderBy(desc(marketReports.createdAt))
+    .limit(1);
+  
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getReportByDate(date: string): Promise<MarketReport | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const result = await db
+    .select()
+    .from(marketReports)
+    .where(eq(marketReports.reportDate, date))
+    .limit(1);
+  
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getReportHistory(limit: number = 30): Promise<MarketReport[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db
+    .select()
+    .from(marketReports)
+    .orderBy(desc(marketReports.createdAt))
+    .limit(limit);
+}
+
+export async function getReportsByDateRange(startDate: string, endDate: string): Promise<MarketReport[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db
+    .select()
+    .from(marketReports)
+    .where(and(
+      gte(marketReports.reportDate, startDate),
+      lte(marketReports.reportDate, endDate)
+    ))
+    .orderBy(desc(marketReports.reportDate));
+}
+
+// ============ Market Snapshot Functions ============
+
+export async function saveMarketSnapshots(reportId: number, snapshots: InsertMarketSnapshot[]): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+  
+  const snapshotsWithReportId = snapshots.map(s => ({ ...s, reportId }));
+  await db.insert(marketSnapshots).values(snapshotsWithReportId);
+}
+
+export async function getSnapshotsByReportId(reportId: number): Promise<MarketSnapshot[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db
+    .select()
+    .from(marketSnapshots)
+    .where(eq(marketSnapshots.reportId, reportId));
+}
+
+// ============ API Config Functions ============
+
+export async function saveApiConfig(config: InsertApiConfig): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+  
+  // Check if config exists
+  const existing = await db
+    .select()
+    .from(apiConfigs)
+    .where(and(
+      eq(apiConfigs.userId, config.userId),
+      eq(apiConfigs.configKey, config.configKey)
+    ))
+    .limit(1);
+  
+  if (existing.length > 0) {
+    await db
+      .update(apiConfigs)
+      .set({ configValue: config.configValue, isActive: config.isActive ?? true })
+      .where(eq(apiConfigs.id, existing[0].id));
+  } else {
+    await db.insert(apiConfigs).values(config);
+  }
+}
+
+export async function getApiConfigs(userId: number): Promise<ApiConfig[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db
+    .select()
+    .from(apiConfigs)
+    .where(eq(apiConfigs.userId, userId));
+}
+
+export async function getApiConfigByKey(userId: number, key: string): Promise<ApiConfig | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const result = await db
+    .select()
+    .from(apiConfigs)
+    .where(and(
+      eq(apiConfigs.userId, userId),
+      eq(apiConfigs.configKey, key)
+    ))
+    .limit(1);
+  
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function deleteApiConfig(userId: number, key: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  
+  await db
+    .delete(apiConfigs)
+    .where(and(
+      eq(apiConfigs.userId, userId),
+      eq(apiConfigs.configKey, key)
+    ));
+}
+
+// ============ System Settings Functions ============
+
+export async function getSystemSetting(key: string): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const result = await db
+    .select()
+    .from(systemSettings)
+    .where(eq(systemSettings.settingKey, key))
+    .limit(1);
+  
+  return result.length > 0 ? result[0].settingValue : null;
+}
+
+export async function setSystemSetting(key: string, value: string, description?: string): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+  
+  const existing = await db
+    .select()
+    .from(systemSettings)
+    .where(eq(systemSettings.settingKey, key))
+    .limit(1);
+  
+  if (existing.length > 0) {
+    await db
+      .update(systemSettings)
+      .set({ settingValue: value, description })
+      .where(eq(systemSettings.settingKey, key));
+  } else {
+    await db.insert(systemSettings).values({
+      settingKey: key,
+      settingValue: value,
+      description,
+    });
+  }
+}

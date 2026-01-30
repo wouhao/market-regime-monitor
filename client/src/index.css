@@ -136,22 +136,12 @@
 @layer components {
   /**
    * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
    */
   .container {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
+    padding-left: 1rem;
     padding-right: 1rem;
   }
 
@@ -162,16 +152,75 @@
 
   @media (min-width: 640px) {
     .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
+      padding-left: 1.5rem;
       padding-right: 1.5rem;
     }
   }
 
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
+      padding-left: 2rem;
       padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      max-width: 1400px;
     }
+  }
+
+  /* Market Regime Status Cards */
+  .regime-card {
+    @apply rounded-xl p-6 transition-all duration-300;
+  }
+  
+  .regime-risk-on {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.08) 100%);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  
+  .regime-risk-off {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.08) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+  
+  .regime-base {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(202, 138, 4, 0.08) 100%);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+  }
+
+  /* Data Quality Progress Bar */
+  .quality-bar {
+    @apply h-2 rounded-full overflow-hidden;
+    background: var(--muted);
+  }
+  
+  .quality-fill {
+    @apply h-full transition-all duration-500 ease-out rounded-full;
+  }
+
+  /* Switch Status Badges */
+  .switch-allowed {
+    @apply bg-green-500/20 text-green-400 border border-green-500/30;
+  }
+  
+  .switch-forbidden {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+  
+  .switch-helper {
+    @apply bg-blue-500/20 text-blue-400 border border-blue-500/30;
+  }
+  
+  .switch-aggressive {
+    @apply bg-green-500/20 text-green-400 border border-green-500/30;
+  }
+  
+  .switch-pause {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+  
+  .switch-medium {
+    @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+  }
+  
+  .switch-fast {
+    @apply bg-green-500/20 text-green-400 border border-green-500/30;
   }
 }
