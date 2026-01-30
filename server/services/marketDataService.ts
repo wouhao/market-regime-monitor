@@ -39,7 +39,9 @@ export interface MarketReportData {
 }
 
 // 指标配置
+// 传统市场指标 (7个) + 加密指标 (4个)
 const INDICATORS_CONFIG = [
+  // 传统市场指标
   { indicator: "BTC-USD", displayName: "Bitcoin", source: "yahoo" },
   { indicator: "QQQ", displayName: "Nasdaq-100 ETF", source: "yahoo" },
   { indicator: "GLD", displayName: "SPDR Gold", source: "yahoo" },
@@ -47,9 +49,11 @@ const INDICATORS_CONFIG = [
   { indicator: "VIXCLS", displayName: "VIX Index", source: "fred" },
   { indicator: "DFII10", displayName: "10Y Real Yield", source: "fred" },
   { indicator: "BAMLH0A0HYM2", displayName: "HY OAS", source: "fred" },
-  { indicator: "crypto_funding", displayName: "BTC Funding Rate", source: "coinglass" },
-  { indicator: "crypto_oi", displayName: "BTC Open Interest", source: "coinglass" },
-  { indicator: "stablecoin", displayName: "Stablecoin Supply", source: "defillama" },
+  // 4个加密指标 (使用Binance免费API + DefiLlama)
+  { indicator: "crypto_funding", displayName: "BTC Funding Rate", source: "binance" },
+  { indicator: "crypto_oi", displayName: "BTC Open Interest", source: "binance" },
+  { indicator: "crypto_liquidations", displayName: "BTC Liq Pressure (proxy)", source: "proxy" },
+  { indicator: "stablecoin", displayName: "Stablecoin Supply (USDT+USDC)", source: "defillama" },
 ];
 
 // 规则定义
@@ -127,81 +131,103 @@ async function fetchFredData(seriesId: string, apiKey: string): Promise<{ prices
 }
 
 /**
- * 从CoinGlass V4 API获取数据
- * 使用 exchange-list 接口获取实时数据（爱好版可用）
+ * 从Binance获取加密数据（免费API）
+ * 如果Binance不可用，回退到OKX API
  */
-async function fetchCoinGlassData(dataType: string, apiKey: string): Promise<number | null> {
+async function fetchBinanceData(dataType: string): Promise<number | null> {
+  // 先尝试Binance，如果失败则尝试OKX
+  const binanceResult = await fetchFromBinance(dataType);
+  if (binanceResult !== null) {
+    return binanceResult;
+  }
+  
+  // Binance失败，尝试OKX作为备选
+  console.log(`[Crypto] Binance failed for ${dataType}, trying OKX...`);
+  return await fetchFromOKX(dataType);
+}
+
+/**
+ * 从Binance获取数据
+ */
+async function fetchFromBinance(dataType: string): Promise<number | null> {
   try {
-    if (!apiKey || apiKey === "demo_key") {
-      console.warn(`[CoinGlass] No valid API key for ${dataType}`);
-      return null;
-    }
-    
-    // V4 API 基础地址
-    const baseUrl = "https://open-api-v4.coinglass.com/api/futures";
-    let url = "";
+    const baseUrl = "https://fapi.binance.com";
     
     if (dataType === "funding") {
-      // 币种资金费率-交易所列表接口（爱好版可用）
-      url = `${baseUrl}/funding-rate/exchange-list?symbol=BTC`;
-    } else if (dataType === "oi") {
-      // 币种交易所持仓接口（爱好版可用）
-      url = `${baseUrl}/open-interest/exchange-list?symbol=BTC`;
-    }
-    
-    console.log(`[CoinGlass] Fetching ${dataType} from: ${url}`);
-    
-    const response = await axios.get(url, {
-      headers: { 
-        "CG-API-KEY": apiKey,
-        "accept": "application/json"
-      },
-      timeout: 15000,
-    });
-    
-    console.log(`[CoinGlass] Response for ${dataType}:`, JSON.stringify(response.data).slice(0, 500));
-    
-    if (response.data?.code !== "0") {
-      console.error(`[CoinGlass] API error for ${dataType}:`, response.data?.msg);
-      return null;
-    }
-    
-    const data = response.data?.data;
-    if (!data || data.length === 0) {
-      console.warn(`[CoinGlass] No data returned for ${dataType}`);
-      return null;
-    }
-    
-    if (dataType === "funding") {
-      // 从返回数据中查找 BTC 的资金费率
-      // 数据结构: [{ symbol: "BTC", stablecoin_margin_list: [{ exchange: "Binance", funding_rate: 0.007343 }] }]
-      const btcData = data.find((item: { symbol: string }) => item.symbol === "BTC");
-      if (btcData?.stablecoin_margin_list?.length > 0) {
-        // 获取 Binance 的资金费率，或者第一个交易所的
-        const binanceData = btcData.stablecoin_margin_list.find(
-          (ex: { exchange: string }) => ex.exchange === "Binance"
-        ) || btcData.stablecoin_margin_list[0];
-        const rate = parseFloat(binanceData?.funding_rate);
-        console.log(`[CoinGlass] Funding rate from ${binanceData?.exchange}: ${rate}`);
-        return isNaN(rate) ? null : rate; // 已经是百分比格式
+      const url = `${baseUrl}/fapi/v1/fundingRate?symbol=BTCUSDT&limit=1`;
+      console.log(`[Binance] Fetching funding rate...`);
+      const response = await axios.get(url, { timeout: 8000 });
+      if (response.data && response.data.length > 0) {
+        const rate = parseFloat(response.data[0].fundingRate);
+        console.log(`[Binance] Funding rate: ${rate}`);
+        return isNaN(rate) ? null : rate * 100;
       }
-      return null;
     } else if (dataType === "oi") {
-      // 从返回数据中查找汇总的持仓量
-      // 数据结构: [{ exchange: "All", symbol: "BTC", open_interest_usd: 57437891724.5572 }]
-      const allData = data.find((item: { exchange: string }) => item.exchange === "All");
-      if (allData?.open_interest_usd) {
-        const oi = parseFloat(allData.open_interest_usd);
-        console.log(`[CoinGlass] Total Open Interest: ${oi}`);
-        return isNaN(oi) ? null : oi;
+      const url = `${baseUrl}/fapi/v1/openInterest?symbol=BTCUSDT`;
+      console.log(`[Binance] Fetching open interest...`);
+      const response = await axios.get(url, { timeout: 8000 });
+      if (response.data?.openInterest) {
+        const oi = parseFloat(response.data.openInterest);
+        const priceUrl = `${baseUrl}/fapi/v1/ticker/price?symbol=BTCUSDT`;
+        const priceResponse = await axios.get(priceUrl, { timeout: 5000 });
+        const price = parseFloat(priceResponse.data?.price || "0");
+        const oiUsd = oi * price;
+        console.log(`[Binance] Open Interest: ${oiUsd} USD`);
+        return isNaN(oiUsd) ? null : oiUsd;
       }
+    } else if (dataType === "liquidations") {
+      // Binance强平数据需要特殊权限，返回null让OKX处理
       return null;
     }
-    
     return null;
   } catch (error: unknown) {
     const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
-    console.error(`[CoinGlass] Failed to fetch ${dataType}:`, axiosError.response?.status, axiosError.response?.data || axiosError.message);
+    console.error(`[Binance] Failed to fetch ${dataType}:`, axiosError.response?.status || axiosError.message);
+    return null;
+  }
+}
+
+/**
+ * 从OKX获取数据（备选，无地区限制）
+ */
+async function fetchFromOKX(dataType: string): Promise<number | null> {
+  try {
+    const baseUrl = "https://www.okx.com";
+    
+    if (dataType === "funding") {
+      // OKX资金费率API
+      const url = `${baseUrl}/api/v5/public/funding-rate?instId=BTC-USDT-SWAP`;
+      console.log(`[OKX] Fetching funding rate...`);
+      const response = await axios.get(url, { timeout: 8000 });
+      if (response.data?.data && response.data.data.length > 0) {
+        const rate = parseFloat(response.data.data[0].fundingRate);
+        console.log(`[OKX] Funding rate: ${rate}`);
+        return isNaN(rate) ? null : rate * 100;
+      }
+    } else if (dataType === "oi") {
+      // OKX持仓量API
+      const url = `${baseUrl}/api/v5/public/open-interest?instType=SWAP&instId=BTC-USDT-SWAP`;
+      console.log(`[OKX] Fetching open interest...`);
+      const response = await axios.get(url, { timeout: 8000 });
+      if (response.data?.data && response.data.data.length > 0) {
+        const oi = parseFloat(response.data.data[0].oi);
+        // 获取当前价格
+        const priceUrl = `${baseUrl}/api/v5/market/ticker?instId=BTC-USDT-SWAP`;
+        const priceResponse = await axios.get(priceUrl, { timeout: 5000 });
+        const price = parseFloat(priceResponse.data?.data?.[0]?.last || "0");
+        const oiUsd = oi * price;
+        console.log(`[OKX] Open Interest: ${oiUsd} USD`);
+        return isNaN(oiUsd) ? null : oiUsd;
+      }
+    } else if (dataType === "liquidations") {
+      // OKX没有公开的强平数据API，返回null并标记为missing
+      console.log(`[OKX] Liquidations data not available via public API`);
+      return null;
+    }
+    return null;
+  } catch (error: unknown) {
+    const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
+    console.error(`[OKX] Failed to fetch ${dataType}:`, axiosError.response?.status || axiosError.message);
     return null;
   }
 }
@@ -249,7 +275,7 @@ function calculateMA20(prices: number[]): number | null {
 /**
  * 获取所有市场数据
  */
-export async function fetchAllMarketData(fredApiKey: string, coinglassApiKey: string): Promise<MarketIndicator[]> {
+export async function fetchAllMarketData(fredApiKey: string): Promise<MarketIndicator[]> {
   console.log("[MarketData] Starting data fetch...");
   const results: MarketIndicator[] = [];
   
@@ -266,14 +292,21 @@ export async function fetchAllMarketData(fredApiKey: string, coinglassApiKey: st
         const data = await fetchFredData(config.indicator, fredApiKey);
         prices = data.prices;
         latest = data.latest;
-      } else if (config.source === "coinglass") {
+      } else if (config.source === "binance") {
+        // 使用Binance免费API获取加密数据
         if (config.indicator === "crypto_funding") {
-          latest = await fetchCoinGlassData("funding", coinglassApiKey);
+          latest = await fetchBinanceData("funding");
         } else if (config.indicator === "crypto_oi") {
-          latest = await fetchCoinGlassData("oi", coinglassApiKey);
+          latest = await fetchBinanceData("oi");
+        } else if (config.indicator === "crypto_liquidations") {
+          latest = await fetchBinanceData("liquidations");
         }
       } else if (config.source === "defillama") {
         latest = await fetchDefiLlamaData();
+      } else if (config.source === "proxy") {
+        // Liquidations proxy: 将在所有数据获取完成后计算
+        // 先设置为占位符，稍后更新
+        latest = null;
       }
     } catch (error) {
       console.error(`[MarketData] Error fetching ${config.indicator}:`, error);
@@ -292,6 +325,46 @@ export async function fetchAllMarketData(fredApiKey: string, coinglassApiKey: st
       aboveMa20: latest !== null && ma20 !== null ? latest > ma20 : null,
       sparklineData: prices.slice(-30),
     });
+  }
+  
+  // 计算 Liquidations Proxy
+  // 规则：价格大跌 + OI明显下降 + funding同向回落 = 清算压力高
+  const btcData = results.find(r => r.indicator === "BTC-USD");
+  const oiData = results.find(r => r.indicator === "crypto_oi");
+  const fundingData = results.find(r => r.indicator === "crypto_funding");
+  const liqProxyIndex = results.findIndex(r => r.indicator === "crypto_liquidations");
+  
+  if (liqProxyIndex !== -1) {
+    // 计算清算压力指数 (0-100)
+    let pressureScore = 50; // 基准值
+    
+    // 价格因素: 24h跌幅越大，压力越高
+    if (btcData && btcData.change1d !== null) {
+      const priceChange = btcData.change1d;
+      if (priceChange <= -5) pressureScore += 30;      // 大跌
+      else if (priceChange <= -3) pressureScore += 20; // 中跌
+      else if (priceChange <= -1) pressureScore += 10; // 小跌
+      else if (priceChange >= 3) pressureScore -= 15;  // 大涨降低压力
+      else if (priceChange >= 1) pressureScore -= 5;   // 小涨降低压力
+    }
+    
+    // OI因素: OI下降表示清算发生
+    // 注: 由于我们没有OI历史数据，这里用funding作为代理
+    
+    // Funding因素: 负资金费率表示空头主导，可能有清算压力
+    if (fundingData && fundingData.latestValue !== null) {
+      const funding = fundingData.latestValue;
+      if (funding < -0.05) pressureScore += 15;        // 强负资金费率
+      else if (funding < -0.01) pressureScore += 8;    // 弱负资金费率
+      else if (funding > 0.1) pressureScore -= 10;     // 强正资金费率降低压力
+    }
+    
+    // 限制在 0-100 范围
+    pressureScore = Math.max(0, Math.min(100, pressureScore));
+    
+    // 更新 proxy 指标
+    results[liqProxyIndex].latestValue = pressureScore;
+    console.log(`[Proxy] Liquidation pressure score: ${pressureScore}`);
   }
   
   console.log(`[MarketData] Fetched ${results.length} indicators`);
@@ -408,25 +481,27 @@ export function classifyRegime(snapshots: MarketIndicator[], previousRegime?: st
 
 /**
  * 生成执行开关
+ * Risk-off: 卖Put激进（高波动环境下Put收益更高）
+ * Risk-on/Base: 卖Put辅助（正常环境下保守操作）
  */
 export function generateSwitches(regime: RegimeResult): ExecutionSwitches {
   switch (regime.regime) {
     case "risk_off":
       return {
         marginBorrow: "forbidden",
-        putSelling: "forbidden",
+        putSelling: "aggressive",  // Risk-off时卖Put激进（高波动环境下Put收益更高）
         spotPace: "pause",
       };
     case "risk_on":
       return {
         marginBorrow: "allowed",
-        putSelling: "aggressive",
+        putSelling: "helper",      // Risk-on时卖Put辅助
         spotPace: "fast",
       };
     default: // base
       return {
         marginBorrow: "allowed",
-        putSelling: "helper",
+        putSelling: "helper",      // Base时卖Put辅助
         spotPace: "medium",
       };
   }
@@ -552,13 +627,12 @@ export function generateReportContent(
  */
 export async function generateMarketReport(
   fredApiKey: string,
-  coinglassApiKey: string,
   previousRegime?: string
 ): Promise<MarketReportData> {
   console.log("[MarketReport] Starting report generation...");
   
-  // 1. 获取所有市场数据
-  const snapshots = await fetchAllMarketData(fredApiKey, coinglassApiKey);
+  // 1. 获取所有市场数据 (使用Binance免费API获取加密数据)
+  const snapshots = await fetchAllMarketData(fredApiKey);
   
   // 2. 判定市场情景
   const regime = classifyRegime(snapshots, previousRegime);

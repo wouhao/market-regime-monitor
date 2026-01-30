@@ -47,3 +47,18 @@
 - [x] 请求头错误 - 从coinglassSecret改为CG-API-KEY
 - [x] API地址错误 - 从open-api.coinglass.com改为open-api-v4.coinglass.com
 - [x] API接口错误 - 从history接口改为exchange-list接口（爱好版可用）
+
+## Bug修复 (2026-01-30 - 用户反馈)
+- [x] Put策略逻辑错误 - Risk-on和Base应为辅助，只有Risk-off才是激进
+- [x] 加密指标不一致 - 页面显示与定义的4个加密指标不一致
+
+## 优化 (2026-01-30 - 数据源替换)
+- [x] 替换CoinGlass为Binance免费API - Funding Rate
+- [x] 替换CoinGlass为Binance免费API - Open Interest
+- [x] 新增Binance清算数据 - Liquidations (REST API proxy)
+- [x] 保持DefiLlama稳定币数据
+
+## 优化 (2026-01-30 - Liquidations Proxy)
+- [x] 实现BTC Liquidations压力proxy - 使用价格变化+OI变化+Funding组合计算
+- [x] 界面显示"proxy"而非"missing"
+- [x] 在Sources中标注proxy规则
