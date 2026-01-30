@@ -76,3 +76,8 @@
 - [x] 切换到 Coinalyze API - 获取多交易所聚合清算数据
 - [x] 添加 Coinalyze API Key 配置支持
 - [x] 更新前端数据源标注
+
+## 优化 (2026-01-30 - 全市场清算数据聚合)
+- [x] 使用Coinalyze /future-markets接口获取所有BTC永续合约
+- [x] 聚合全市场清算数据（不仅限于Binance+OKX+Bybit）
+- [x] 在日志中记录聚合的交易所列表

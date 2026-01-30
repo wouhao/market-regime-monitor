@@ -388,13 +388,56 @@ async function fetchCoinalyzeLiquidations(apiKey: string): Promise<CoinalyzeLiqu
     const baseUrl = "https://api.coinalyze.net/v1";
     const requestTime = new Date().toISOString();
     
-    // 主要BTC永续合约符号 (Binance, OKX, Bybit)
-    const symbols = [
-      "BTCUSDT_PERP.A",  // Binance
-      "BTCUSDT_PERP.6",  // OKX
-      "BTCUSDT_PERP.4",  // Bybit
-    ].join(",");
+    // 第一步：获取所有BTC永续合约市场
+    console.log(`[Coinalyze] Step 1: Fetching all BTC perpetual markets...`);
+    let btcSymbols: string[] = [];
     
+    try {
+      const marketsResponse = await axios.get(`${baseUrl}/future-markets`, {
+        headers: { "api_key": apiKey },
+        timeout: 10000,
+      });
+      
+      if (marketsResponse.data && Array.isArray(marketsResponse.data)) {
+        // 过滤出所有BTC永续合约（PERP类型）
+        btcSymbols = marketsResponse.data
+          .filter((market: { symbol?: string; base_asset?: string; type?: string }) => 
+            market.base_asset === "BTC" && 
+            market.type === "perpetual" &&
+            market.symbol
+          )
+          .map((market: { symbol: string }) => market.symbol);
+        
+        console.log(`[Coinalyze] Found ${btcSymbols.length} BTC perpetual contracts`);
+        console.log(`[Coinalyze] Exchanges: ${btcSymbols.map(s => s.split('.')[1] || s).join(', ')}`);
+      }
+    } catch (marketError) {
+      console.warn(`[Coinalyze] Failed to fetch markets, using default symbols`);
+    }
+    
+    // 如果获取市场列表失败，使用默认的主要交易所
+    if (btcSymbols.length === 0) {
+      btcSymbols = [
+        "BTCUSDT_PERP.A",  // Binance
+        "BTCUSDT_PERP.6",  // OKX
+        "BTCUSDT_PERP.4",  // Bybit
+        "BTCUSDT_PERP.7",  // Bitget
+        "BTCUSD_PERP.A",   // Binance COIN-M
+        "BTCUSD_PERP.2",   // BitMEX
+      ];
+      console.log(`[Coinalyze] Using default ${btcSymbols.length} symbols`);
+    }
+    
+    // Coinalyze API 限制每次最多20个symbols，需要分批请求
+    const batchSize = 20;
+    const symbolBatches: string[][] = [];
+    for (let i = 0; i < btcSymbols.length; i += batchSize) {
+      symbolBatches.push(btcSymbols.slice(i, i + batchSize));
+    }
+    
+    console.log(`[Coinalyze] Step 2: Fetching liquidation history in ${symbolBatches.length} batch(es)...`);
+    
+    const symbols = btcSymbols.slice(0, batchSize).join(","); // 第一批
     const params = `symbols=${symbols}&interval=1hour&convert_to_usd=true`;
     
     console.log(`[Coinalyze] Fetching liquidation history...`);
@@ -405,20 +448,6 @@ async function fetchCoinalyzeLiquidations(apiKey: string): Promise<CoinalyzeLiqu
     const now = Math.floor(Date.now() / 1000);
     const from = now - 48 * 60 * 60; // 48小时前
     
-    const url = `${baseUrl}/liquidation-history?${params}&from=${from}&to=${now}`;
-    
-    const response = await axios.get(url, {
-      headers: {
-        "api_key": apiKey,
-      },
-      timeout: 15000,
-    });
-    
-    if (!response.data || !Array.isArray(response.data)) {
-      console.error(`[Coinalyze] Invalid response format`);
-      return null;
-    }
-    
     // 聚合所有交易所的数据
     const now24hAgo = (now - 24 * 60 * 60) * 1000; // 转换为毫秒
     const now7dAgo = (now - 7 * 24 * 60 * 60) * 1000;
@@ -426,31 +455,75 @@ async function fetchCoinalyzeLiquidations(apiKey: string): Promise<CoinalyzeLiqu
     let long24h = 0;
     let short24h = 0;
     let total7d = 0;
+    let processedExchanges: string[] = [];
     
-    // response.data 是数组，每个元素对应一个交易所
-    for (const exchangeData of response.data) {
-      const history = exchangeData.history || [];
+    // 分批请求所有交易所的数据
+    for (let batchIndex = 0; batchIndex < symbolBatches.length; batchIndex++) {
+      const batchSymbols = symbolBatches[batchIndex].join(",");
+      const batchUrl = `${baseUrl}/liquidation-history?symbols=${batchSymbols}&interval=1hour&convert_to_usd=true&from=${from}&to=${now}`;
       
-      for (const point of history) {
-        const t = point.t; // 时间戳 (毫秒)
-        const l = point.l || 0; // long liquidations (USD)
-        const s = point.s || 0; // short liquidations (USD)
+      console.log(`[Coinalyze] Batch ${batchIndex + 1}/${symbolBatches.length}: ${symbolBatches[batchIndex].length} symbols`);
+      
+      try {
+        const response = await axios.get(batchUrl, {
+          headers: { "api_key": apiKey },
+          timeout: 15000,
+        });
         
-        // 7D 合计
-        if (t >= now7dAgo) {
-          total7d += l + s;
-          
-          // 24h 分类统计
-          if (t >= now24hAgo) {
-            long24h += l;
-            short24h += s;
+        if (response.data && Array.isArray(response.data)) {
+          // response.data 是数组，每个元素对应一个交易所
+          for (const exchangeData of response.data) {
+            const symbol = exchangeData.symbol || 'unknown';
+            const exchangeCode = symbol.split('.')[1] || symbol;
+            if (!processedExchanges.includes(exchangeCode)) {
+              processedExchanges.push(exchangeCode);
+            }
+            
+            const history = exchangeData.history || [];
+            
+            for (const point of history) {
+              const t = point.t; // 时间戳 (毫秒)
+              const l = point.l || 0; // long liquidations (USD)
+              const s = point.s || 0; // short liquidations (USD)
+              
+              // 7D 合计
+              if (t >= now7dAgo) {
+                total7d += l + s;
+                
+                // 24h 分类统计
+                if (t >= now24hAgo) {
+                  long24h += l;
+                  short24h += s;
+                }
+              }
+            }
           }
         }
+      } catch (batchError) {
+        console.warn(`[Coinalyze] Batch ${batchIndex + 1} failed, continuing...`);
+      }
+      
+      // 避免触发速率限制，批次之间稍作延迟
+      if (batchIndex < symbolBatches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
     
     const total24h = long24h + short24h;
     
+    // 生成交易所列表字符串
+    const exchangeNames: Record<string, string> = {
+      'A': 'Binance', '6': 'OKX', '4': 'Bybit', '7': 'Bitget',
+      '2': 'BitMEX', '5': 'Huobi', '8': 'Gate', '9': 'Kraken',
+      'B': 'dYdX', 'C': 'CoinEx', 'D': 'Phemex'
+    };
+    const exchangeList = processedExchanges
+      .map(code => exchangeNames[code] || code)
+      .filter((v, i, a) => a.indexOf(v) === i) // 去重
+      .join('+');
+    
+    console.log(`[Coinalyze] Processed ${processedExchanges.length} exchange contracts`);
+    console.log(`[Coinalyze] Exchanges: ${exchangeList}`);
     console.log(`[Coinalyze] 24h Long: $${long24h.toLocaleString()}`);
     console.log(`[Coinalyze] 24h Short: $${short24h.toLocaleString()}`);
     console.log(`[Coinalyze] 24h Total: $${total24h.toLocaleString()}`);
@@ -462,8 +535,8 @@ async function fetchCoinalyzeLiquidations(apiKey: string): Promise<CoinalyzeLiqu
       short24h,
       total7d,
       requestTime,
-      params,
-      source: "Coinalyze REST /v1/liquidation-history (Binance+OKX+Bybit)",
+      params: `${btcSymbols.length} BTC perpetual contracts`,
+      source: `Coinalyze REST /v1/liquidation-history (${exchangeList || 'All Markets'})`,
     };
   } catch (error: unknown) {
     const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
