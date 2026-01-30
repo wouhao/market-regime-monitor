@@ -73,8 +73,9 @@ const dataSourceInfo: Record<string, { name: string; source: string; url: string
   "VIXCLS": { name: "VIX Index", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
   "DFII10": { name: "10Y Real Yield", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
   "BAMLH0A0HYM2": { name: "HY OAS", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
-  "crypto_funding": { name: "BTC Funding Rate", source: "CoinGlass", url: "https://www.coinglass.com/zh/pricing", description: "需要CoinGlass API Key（付费）" },
-  "crypto_oi": { name: "BTC Open Interest", source: "CoinGlass", url: "https://www.coinglass.com/zh/pricing", description: "需要CoinGlass API Key（付费）" },
+  "crypto_funding": { name: "BTC Funding Rate", source: "Binance/OKX", url: "", description: "免费，无需API Key" },
+  "crypto_oi": { name: "BTC Open Interest", source: "Binance/OKX", url: "", description: "免费，无需API Key" },
+  "crypto_liquidations": { name: "BTC Liquidations (24h)", source: "OKX REST", url: "https://www.okx.com/docs-v5/", description: "免费，/api/v5/public/liquidation-orders" },
   "stablecoin": { name: "Stablecoin Supply", source: "DefiLlama", url: "", description: "免费，无需API Key" },
 };
 

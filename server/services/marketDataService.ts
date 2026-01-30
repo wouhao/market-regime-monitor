@@ -52,7 +52,7 @@ const INDICATORS_CONFIG = [
   // 4个加密指标 (使用Binance免费API + DefiLlama)
   { indicator: "crypto_funding", displayName: "BTC Funding Rate", source: "binance" },
   { indicator: "crypto_oi", displayName: "BTC Open Interest", source: "binance" },
-  { indicator: "crypto_liquidations", displayName: "BTC Liq Pressure (proxy)", source: "proxy" },
+  { indicator: "crypto_liquidations", displayName: "BTC Liquidations (24h)", source: "okx_liq" },
   { indicator: "stablecoin", displayName: "Stablecoin Supply (USDT+USDC)", source: "defillama" },
 ];
 
@@ -233,6 +233,142 @@ async function fetchFromOKX(dataType: string): Promise<number | null> {
 }
 
 /**
+ * 从OKX获取BTC清算数据 (REST API)
+ * 使用 /api/v5/public/liquidation-orders 接口
+ * 返回: { total24h, long24h, short24h, total7d, requestTime, params }
+ */
+interface LiquidationResult {
+  total24h: number;
+  long24h: number;
+  short24h: number;
+  total7d: number;
+  requestTime: string;
+  params: string;
+}
+
+async function fetchOKXLiquidations(): Promise<LiquidationResult | null> {
+  try {
+    const baseUrl = "https://www.okx.com";
+    const requestTime = new Date().toISOString();
+    const params = "instType=SWAP&uly=BTC-USDT&state=filled";
+    
+    console.log(`[OKX Liq] Fetching liquidation orders...`);
+    console.log(`[OKX Liq] Request time: ${requestTime}`);
+    console.log(`[OKX Liq] Params: ${params}`);
+    
+    // OKX 返回最近 7 天的数据，每次最多 100 条
+    // 需要多次请求获取更多数据
+    const allDetails: Array<{
+      bkPx: string;
+      sz: string;
+      posSide: string;
+      ts: string;
+    }> = [];
+    
+    let after = "";
+    let hasMore = true;
+    let requestCount = 0;
+    const maxRequests = 10; // 限制请求次数避免过多
+    
+    while (hasMore && requestCount < maxRequests) {
+      const url = `${baseUrl}/api/v5/public/liquidation-orders?${params}${after ? `&after=${after}` : ""}`;
+      const response = await axios.get(url, { timeout: 10000 });
+      
+      if (response.data?.code !== "0") {
+        console.error(`[OKX Liq] API error:`, response.data?.msg);
+        break;
+      }
+      
+      const data = response.data?.data || [];
+      if (data.length === 0) {
+        hasMore = false;
+        break;
+      }
+      
+      // 提取所有 details
+      for (const item of data) {
+        if (item.details && Array.isArray(item.details)) {
+          allDetails.push(...item.details);
+        }
+      }
+      
+      // 获取最后一条记录的 ts 作为下一页的 after 参数
+      const lastItem = data[data.length - 1];
+      const lastDetails = lastItem?.details;
+      if (lastDetails && lastDetails.length > 0) {
+        after = lastDetails[lastDetails.length - 1].ts;
+      } else {
+        hasMore = false;
+      }
+      
+      requestCount++;
+      
+      // 检查是否超过 7 天前的数据
+      const now = Date.now();
+      const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+      const oldestTs = parseInt(after);
+      if (oldestTs < sevenDaysAgo) {
+        hasMore = false;
+      }
+    }
+    
+    console.log(`[OKX Liq] Total records fetched: ${allDetails.length}`);
+    
+    // 按时间过滤并计算
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    
+    let long24h = 0;
+    let short24h = 0;
+    let total7d = 0;
+    
+    for (const detail of allDetails) {
+      const ts = parseInt(detail.ts);
+      const bkPx = parseFloat(detail.bkPx); // 破产价格
+      const sz = parseFloat(detail.sz);     // 数量 (BTC)
+      const notional = bkPx * sz;           // USD 价值
+      
+      if (isNaN(notional)) continue;
+      
+      // 7D 合计
+      if (ts >= sevenDaysAgo) {
+        total7d += notional;
+        
+        // 24h 分类统计
+        if (ts >= oneDayAgo) {
+          if (detail.posSide === "long") {
+            long24h += notional;
+          } else if (detail.posSide === "short") {
+            short24h += notional;
+          }
+        }
+      }
+    }
+    
+    const total24h = long24h + short24h;
+    
+    console.log(`[OKX Liq] 24h Long: $${long24h.toLocaleString()}`);
+    console.log(`[OKX Liq] 24h Short: $${short24h.toLocaleString()}`);
+    console.log(`[OKX Liq] 24h Total: $${total24h.toLocaleString()}`);
+    console.log(`[OKX Liq] 7D Total: $${total7d.toLocaleString()}`);
+    
+    return {
+      total24h,
+      long24h,
+      short24h,
+      total7d,
+      requestTime,
+      params,
+    };
+  } catch (error: unknown) {
+    const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
+    console.error(`[OKX Liq] Failed to fetch liquidations:`, axiosError.response?.status || axiosError.message);
+    return null;
+  }
+}
+
+/**
  * 从DefiLlama获取稳定币数据
  */
 async function fetchDefiLlamaData(): Promise<number | null> {
@@ -303,10 +439,14 @@ export async function fetchAllMarketData(fredApiKey: string): Promise<MarketIndi
         }
       } else if (config.source === "defillama") {
         latest = await fetchDefiLlamaData();
-      } else if (config.source === "proxy") {
-        // Liquidations proxy: 将在所有数据获取完成后计算
-        // 先设置为占位符，稍后更新
-        latest = null;
+      } else if (config.source === "okx_liq") {
+        // 使用OKX REST API获取真实的清算数据
+        const liqData = await fetchOKXLiquidations();
+        if (liqData) {
+          latest = liqData.total24h;
+          // 将详细数据存储在全局变量中，供后续使用
+          (global as Record<string, unknown>).__lastLiquidationData = liqData;
+        }
       }
     } catch (error) {
       console.error(`[MarketData] Error fetching ${config.indicator}:`, error);
@@ -327,44 +467,14 @@ export async function fetchAllMarketData(fredApiKey: string): Promise<MarketIndi
     });
   }
   
-  // 计算 Liquidations Proxy
-  // 规则：价格大跌 + OI明显下降 + funding同向回落 = 清算压力高
-  const btcData = results.find(r => r.indicator === "BTC-USD");
-  const oiData = results.find(r => r.indicator === "crypto_oi");
-  const fundingData = results.find(r => r.indicator === "crypto_funding");
-  const liqProxyIndex = results.findIndex(r => r.indicator === "crypto_liquidations");
-  
-  if (liqProxyIndex !== -1) {
-    // 计算清算压力指数 (0-100)
-    let pressureScore = 50; // 基准值
-    
-    // 价格因素: 24h跌幅越大，压力越高
-    if (btcData && btcData.change1d !== null) {
-      const priceChange = btcData.change1d;
-      if (priceChange <= -5) pressureScore += 30;      // 大跌
-      else if (priceChange <= -3) pressureScore += 20; // 中跌
-      else if (priceChange <= -1) pressureScore += 10; // 小跌
-      else if (priceChange >= 3) pressureScore -= 15;  // 大涨降低压力
-      else if (priceChange >= 1) pressureScore -= 5;   // 小涨降低压力
-    }
-    
-    // OI因素: OI下降表示清算发生
-    // 注: 由于我们没有OI历史数据，这里用funding作为代理
-    
-    // Funding因素: 负资金费率表示空头主导，可能有清算压力
-    if (fundingData && fundingData.latestValue !== null) {
-      const funding = fundingData.latestValue;
-      if (funding < -0.05) pressureScore += 15;        // 强负资金费率
-      else if (funding < -0.01) pressureScore += 8;    // 弱负资金费率
-      else if (funding > 0.1) pressureScore -= 10;     // 强正资金费率降低压力
-    }
-    
-    // 限制在 0-100 范围
-    pressureScore = Math.max(0, Math.min(100, pressureScore));
-    
-    // 更新 proxy 指标
-    results[liqProxyIndex].latestValue = pressureScore;
-    console.log(`[Proxy] Liquidation pressure score: ${pressureScore}`);
+  // 记录清算数据来源信息
+  const liqData = (global as Record<string, unknown>).__lastLiquidationData as LiquidationResult | undefined;
+  if (liqData) {
+    console.log(`[MarketData] Liquidation data source: OKX REST /api/v5/public/liquidation-orders`);
+    console.log(`[MarketData] Request time: ${liqData.requestTime}`);
+    console.log(`[MarketData] Params: ${liqData.params}`);
+    console.log(`[MarketData] 24h Long: $${liqData.long24h.toLocaleString()}, Short: $${liqData.short24h.toLocaleString()}, Total: $${liqData.total24h.toLocaleString()}`);
+    console.log(`[MarketData] 7D Total: $${liqData.total7d.toLocaleString()}`);
   }
   
   console.log(`[MarketData] Fetched ${results.length} indicators`);

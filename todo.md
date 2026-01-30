@@ -62,3 +62,11 @@
 - [x] 实现BTC Liquidations压力proxy - 使用价格变化+OI变化+Funding组合计算
 - [x] 界面显示"proxy"而非"missing"
 - [x] 在Sources中标注proxy规则
+
+## 修复 (2026-01-30 - OKX Liquidation Orders)
+- [x] 测试OKX /api/v5/public/liquidation-orders接口
+- [x] 实现REST拉取最近7天爆仓单
+- [x] 按timestamp过滤最近24h记录
+- [x] 计算24h long/short/total liquidation notional (USD)
+- [x] 可选输出7D合计
+- [x] Sources标注OKX REST liquidation-orders + 请求时间戳 + 参数口径
