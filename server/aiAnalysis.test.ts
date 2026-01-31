@@ -44,6 +44,17 @@ describe("AI Analysis Service", () => {
       { indicator: "crypto_liquidations", displayName: "BTC Liquidations (24h)", latestValue: 272810000, change1d: null, change7d: null, change30d: null, ma20: null, aboveMa20: null, sparklineData: [] },
     ],
     cryptoTrends: null,
+    etfFlowData: {
+      date: "2026-01-30",
+      total: -509.7,
+      ibit: -528.3,
+      fbtc: 7.3,
+      gbtc: 0.0,
+      totalExGbtc: -509.7,
+      rolling5d: -297.5,
+      rolling20d: -80.2,
+      alert: "Large outflow: -509.7m | Weakening momentum: 5D < 20D by 50%+",
+    },
     currentRegime: "risk_on",
     currentStatus: "confirmed",
     previousRegime: "risk_on",
@@ -117,5 +128,25 @@ describe("Crypto Metrics Formatting", () => {
     const oi = 8610000000;
     const formatted = `$${(oi / 1e9).toFixed(2)}B`;
     expect(formatted).toBe("$8.61B");
+  });
+});
+
+describe("ETF Flow Data Formatting", () => {
+  it("should format positive ETF flow with plus sign", () => {
+    const flow = 123.4;
+    const formatted = `${flow >= 0 ? '+' : ''}${flow.toFixed(1)}m`;
+    expect(formatted).toBe("+123.4m");
+  });
+
+  it("should format negative ETF flow without plus sign", () => {
+    const flow = -509.7;
+    const formatted = `${flow >= 0 ? '+' : ''}${flow.toFixed(1)}m`;
+    expect(formatted).toBe("-509.7m");
+  });
+
+  it("should format zero ETF flow with plus sign", () => {
+    const flow = 0.0;
+    const formatted = `${flow >= 0 ? '+' : ''}${flow.toFixed(1)}m`;
+    expect(formatted).toBe("+0.0m");
   });
 });

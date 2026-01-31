@@ -188,3 +188,11 @@
 - [x] 图表交互：悬停显示详细数据
 - [x] 响应式设计适配移动端 (ResponsiveContainer)
 - [x] 单元测试覆盖 (49个测试全部通过)
+
+## 新功能 (2026-01-31 - ETF Flow纳入AI分析)
+- [x] 分析现有AI分析服务结构
+- [x] 在AI分析输入中添加ETF Flow数据 (EtfFlowDataForAI接口)
+- [x] 更新AI提示词包含ETF Flow分析指导
+- [x] 让AI解读结合机构资金流向给出判断
+- [x] 在routers.ts和schedulerService.ts中添加ETF Flow数据获取
+- [x] 测试验证AI分析功能 (52个测试全部通过)
