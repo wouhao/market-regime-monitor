@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, ai_analysis FROM market_reports WHERE ai_analysis IS NOT NULL ORDER BY id DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute SELECT id, ai_analysis FROM market_reports WHERE ai_analysis IS NOT NULL ORDER BY id DESC LIMIT 1;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'ai_analysis' in 'where clause'"
+  ]
+}
