@@ -58,7 +58,7 @@ export const marketReports = mysqlTable("market_reports", {
     funding: { latest: number | null; avg7d: number | null; asOf: string };
     liquidations: { h24: number | null; total7d: number | null; avg7d: number | null; asOf: string; missingDays?: number };
     stablecoin: { latest: number | null; pct7d: number | null; pct30d: number | null; asOf: string };
-    exchangeNetflow: { value: null; reason: string };
+    etfFlow: { today: number | null; rolling5d: number | null; rolling20d: number | null; asOfDate: string; fetchTimeUtc: string | null; tag: "Supportive" | "Drag" | "Neutral"; tagReason: string };
     missingFields: string[];
   }>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

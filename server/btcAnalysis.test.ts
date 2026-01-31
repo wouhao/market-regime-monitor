@@ -26,6 +26,11 @@ describe("BTC Market Analysis Service", () => {
     oi7dAgo: 9000000000,
     funding7dHistory: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001],
     liq7dHistory: [200000000, 200000000, 200000000, 200000000, 200000000, 200000000, 200000000],
+    etfFlowToday: 100,
+    etfFlowRolling5d: 50,
+    etfFlowRolling20d: 30,
+    etfFlowAsOfDate: "2026-01-30",
+    etfFlowFetchTimeUtc: "2026-01-30T12:00:00Z",
     previousBtcState: null,
     asOfDate: "2026-01-31",
   };
@@ -348,12 +353,29 @@ describe("BTC Market Analysis Service", () => {
     });
   });
 
-  describe("Exchange Netflow", () => {
-    it("should always mark exchange netflow as missing", () => {
+  describe("ETF Flow", () => {
+    it("should include ETF Flow in evidence", () => {
       const result = analyzeBtcMarket(baseInput);
       
-      expect(result.evidence.exchangeNetflow.value).toBeNull();
-      expect(result.evidence.exchangeNetflow.reason).toContain("missing");
+      expect(result.evidence.etfFlow).toBeDefined();
+      expect(result.evidence.etfFlow.today).toBe(100);
+      expect(result.evidence.etfFlow.rolling5d).toBe(50);
+      expect(result.evidence.etfFlow.rolling20d).toBe(30);
+      expect(result.evidence.etfFlow.tag).toBe("Supportive");
+    });
+
+    it("should return Neutral tag when ETF Flow data is null", () => {
+      const input: BtcAnalysisInput = {
+        ...baseInput,
+        etfFlowToday: null,
+        etfFlowRolling5d: null,
+        etfFlowRolling20d: null,
+      };
+      
+      const result = analyzeBtcMarket(input);
+      
+      expect(result.evidence.etfFlow.tag).toBe("Neutral");
+      expect(result.evidence.etfFlow.tagReason).toContain("Insufficient");
     });
   });
 });

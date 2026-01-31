@@ -62,6 +62,9 @@ import {
   backfillCryptoMetrics,
   getBackfillStatus,
 } from "./services/coinglassBackfillService";
+import { btcEtfFlows } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
+import { getDb } from "./db";
 
 export const appRouter = router({
   system: systemRouter,
@@ -802,10 +805,24 @@ async function generateBtcAnalysisForReport(
     const liq24h = cryptoMetrics.liq24hUsd;
     const stablecoinLatest = cryptoMetrics.stableUsdtUsdcUsd;
     
-    // 获取Stablecoin趋势
-    const stableSnapshot = snapshots.find(s => s.indicator === "stablecoin");
-    const stablecoin7dPct = stableSnapshot?.change7d || null;
-    const stablecoin30dPct = stableSnapshot?.change30d || null;
+    // 获取Stablecoin趋势（从历史数据计算，因为DefiLlama API不提供历史价格数组）
+    let stablecoin7dPct: number | null = null;
+    let stablecoin30dPct: number | null = null;
+    
+    // 从crypto_metrics_daily获取历史数据计算变化率
+    const stableHistory = await getCryptoMetricsRange(31);
+    if (stableHistory.length >= 8 && stablecoinLatest !== null) {
+      const d7Stable = stableHistory[7]?.stableUsdtUsdcUsd;
+      if (d7Stable && Number(d7Stable) > 0) {
+        stablecoin7dPct = ((stablecoinLatest - Number(d7Stable)) / Number(d7Stable)) * 100;
+      }
+    }
+    if (stableHistory.length >= 31 && stablecoinLatest !== null) {
+      const d30Stable = stableHistory[30]?.stableUsdtUsdcUsd;
+      if (d30Stable && Number(d30Stable) > 0) {
+        stablecoin30dPct = ((stablecoinLatest - Number(d30Stable)) / Number(d30Stable)) * 100;
+      }
+    }
     
     // 获取历史数据（过去8天，包含今天）
     const historicalMetrics = await getCryptoMetricsRange(8);
@@ -833,6 +850,37 @@ async function generateBtcAnalysisForReport(
     const bjTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
     const asOfDate = bjTime.toISOString().split("T")[0];
     
+    // 获取 ETF Flow 数据
+    let etfFlowToday: number | null = null;
+    let etfFlowRolling5d: number | null = null;
+    let etfFlowRolling20d: number | null = null;
+    let etfFlowAsOfDate = "";
+    let etfFlowFetchTimeUtc: string | null = null;
+    
+    try {
+      const etfData = await getLatestEtfFlow();
+      if (etfData) {
+        etfFlowToday = etfData.total;
+        etfFlowRolling5d = etfData.rolling5d;
+        etfFlowRolling20d = etfData.rolling20d;
+        etfFlowAsOfDate = etfData.date;
+        // 从数据库获取fetchTimeUtc
+        const db = await getDb();
+        if (db) {
+          const [record] = await db
+            .select({ fetchTimeUtc: btcEtfFlows.fetchTimeUtc })
+            .from(btcEtfFlows)
+            .where(eq(btcEtfFlows.date, etfData.date))
+            .limit(1);
+          if (record?.fetchTimeUtc) {
+            etfFlowFetchTimeUtc = record.fetchTimeUtc.toISOString();
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[BTC Analysis] Failed to get ETF Flow:", error);
+    }
+    
     // 构建输入数据
     const input: BtcAnalysisInput = {
       btcPrice,
@@ -847,6 +895,11 @@ async function generateBtcAnalysisForReport(
       oi7dAgo,
       funding7dHistory,
       liq7dHistory,
+      etfFlowToday,
+      etfFlowRolling5d,
+      etfFlowRolling20d,
+      etfFlowAsOfDate,
+      etfFlowFetchTimeUtc,
       previousBtcState,
       asOfDate,
     };

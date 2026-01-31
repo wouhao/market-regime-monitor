@@ -42,9 +42,14 @@ export interface BtcEvidence {
     pct30d: number | null;
     asOf: string;
   };
-  exchangeNetflow: {
-    value: null;
-    reason: string;
+  etfFlow: {
+    today: number | null;
+    rolling5d: number | null;
+    rolling20d: number | null;
+    asOfDate: string;
+    fetchTimeUtc: string | null;
+    tag: "Supportive" | "Drag" | "Neutral";
+    tagReason: string;
   };
   missingFields: string[];
 }
@@ -57,6 +62,9 @@ export interface BtcAnalysisResult {
   evidence: BtcEvidence;
   stateReasons: string[]; // 触发状态的具体原因
 }
+
+// ETF Flow 子标签类型
+export type EtfFlowTag = "Supportive" | "Drag" | "Neutral";
 
 // 输入数据结构
 export interface BtcAnalysisInput {
@@ -75,6 +83,13 @@ export interface BtcAnalysisInput {
   oi7dAgo: number | null;
   funding7dHistory: (number | null)[]; // 过去7天的funding值
   liq7dHistory: (number | null)[]; // 过去7天的liq24h值
+  
+  // ETF Flow 数据
+  etfFlowToday: number | null; // 当日净流入 (US$m)
+  etfFlowRolling5d: number | null; // 5D滚动平均
+  etfFlowRolling20d: number | null; // 20D滚动平均
+  etfFlowAsOfDate: string; // 交易日
+  etfFlowFetchTimeUtc: string | null; // 抓取时间
   
   // 上一次报告的BTC状态（用于判断confirmed）
   previousBtcState: BtcState | null;
@@ -149,6 +164,66 @@ function determineLiquidityTag(stablecoin7dPct: number | null, stablecoin30dPct:
   }
   
   return "Unknown";
+}
+
+/**
+ * 判断 ETF Flow 子标签
+ * - Supportive: 5D rolling > 0 且 20D rolling >= 0
+ * - Drag: 5D rolling < 0 且 (5D < 20D 或 当日大额流出)
+ * - Neutral: 其余情况/数据不足
+ */
+function determineEtfFlowTag(
+  today: number | null,
+  rolling5d: number | null,
+  rolling20d: number | null
+): EtfFlowTag {
+  // 数据不足 → Neutral
+  if (rolling5d === null || rolling20d === null) {
+    return "Neutral";
+  }
+  
+  // Supportive: 5D > 0 且 20D >= 0
+  if (rolling5d > 0 && rolling20d >= 0) {
+    return "Supportive";
+  }
+  
+  // Drag: 5D < 0 且 (5D < 20D 或 当日大额流出)
+  if (rolling5d < 0) {
+    // 5D < 20D 或 当日流出超过 $200M
+    if (rolling5d < rolling20d || (today !== null && today < -200)) {
+      return "Drag";
+    }
+  }
+  
+  return "Neutral";
+}
+
+/**
+ * 获取 ETF Flow 标签的原因说明
+ */
+function getEtfFlowTagReason(
+  today: number | null,
+  rolling5d: number | null,
+  rolling20d: number | null
+): string {
+  if (rolling5d === null || rolling20d === null) {
+    return "Insufficient data for ETF Flow analysis";
+  }
+  
+  const tag = determineEtfFlowTag(today, rolling5d, rolling20d);
+  const todayStr = today !== null ? `today=${today >= 0 ? '+' : ''}${today.toFixed(1)}m` : "today=N/A";
+  const r5dStr = `5D=${rolling5d >= 0 ? '+' : ''}${rolling5d.toFixed(1)}m`;
+  const r20dStr = `20D=${rolling20d >= 0 ? '+' : ''}${rolling20d.toFixed(1)}m`;
+  
+  switch (tag) {
+    case "Supportive":
+      return `Institutional demand supportive (${r5dStr}, ${r20dStr})`;
+    case "Drag":
+      return `Institutional demand weak (${r5dStr}, ${r20dStr}, ${todayStr})`;
+    case "Neutral":
+    default:
+      return `Institutional demand neutral (${r5dStr}, ${r20dStr})`;
+  }
 }
 
 /**
@@ -359,9 +434,14 @@ export function analyzeBtcMarket(input: BtcAnalysisInput): BtcAnalysisResult {
       pct30d: input.stablecoin30dPct,
       asOf: input.asOfDate,
     },
-    exchangeNetflow: {
-      value: null,
-      reason: "missing - data source not implemented",
+    etfFlow: {
+      today: input.etfFlowToday,
+      rolling5d: input.etfFlowRolling5d,
+      rolling20d: input.etfFlowRolling20d,
+      asOfDate: input.etfFlowAsOfDate,
+      fetchTimeUtc: input.etfFlowFetchTimeUtc,
+      tag: determineEtfFlowTag(input.etfFlowToday, input.etfFlowRolling5d, input.etfFlowRolling20d),
+      tagReason: getEtfFlowTagReason(input.etfFlowToday, input.etfFlowRolling5d, input.etfFlowRolling20d),
     },
     missingFields,
   };
@@ -446,8 +526,16 @@ export function formatBtcAnalysisForAI(result: BtcAnalysisResult): string {
     lines.push(`  - Stablecoin: missing`);
   }
   
-  // Exchange netflow
-  lines.push(`  - Exchange netflow: ${evidence.exchangeNetflow.reason}`);
+  // ETF Flow
+  const etf = evidence.etfFlow;
+  if (etf.today !== null || etf.rolling5d !== null) {
+    const todayStr = etf.today !== null ? `${etf.today >= 0 ? '+' : ''}${etf.today.toFixed(1)}m` : 'N/A';
+    const r5dStr = etf.rolling5d !== null ? `${etf.rolling5d >= 0 ? '+' : ''}${etf.rolling5d.toFixed(1)}m` : 'N/A';
+    const r20dStr = etf.rolling20d !== null ? `${etf.rolling20d >= 0 ? '+' : ''}${etf.rolling20d.toFixed(1)}m` : 'N/A';
+    lines.push(`  - ETF Flow: ${etf.tag} | today: ${todayStr} | 5D: ${r5dStr} | 20D: ${r20dStr} (as_of: ${etf.asOfDate})`);
+  } else {
+    lines.push(`  - ETF Flow: missing`);
+  }
   
   // Missing fields
   if (evidence.missingFields.length > 0) {

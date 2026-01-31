@@ -1132,7 +1132,15 @@ interface BtcEvidence {
   funding: { latest: number | null; avg7d: number | null; asOf: string };
   liquidations: { h24: number | null; total7d: number | null; avg7d: number | null; asOf: string; missingDays?: number };
   stablecoin: { latest: number | null; pct7d: number | null; pct30d: number | null; asOf: string };
-  exchangeNetflow: { value: null; reason: string };
+  etfFlow: { 
+    today: number | null; 
+    rolling5d: number | null; 
+    rolling20d: number | null; 
+    asOfDate: string; 
+    fetchTimeUtc: string | null; 
+    tag: "Supportive" | "Drag" | "Neutral"; 
+    tagReason: string; 
+  };
   missingFields: string[];
 }
 
@@ -1329,11 +1337,37 @@ function BtcAnalysisCard({
                 </span>
               </div>
               
-              {/* Exchange Netflow */}
-              <div className="flex justify-between items-center p-2 rounded bg-muted/20">
-                <span className="text-muted-foreground">Exchange netflow</span>
-                <span className="text-yellow-500">{evidence.exchangeNetflow.reason}</span>
-              </div>
+              {/* ETF Flow */}
+              {evidence.etfFlow ? (
+                <>
+                  <div className="flex justify-between items-center p-2 rounded bg-muted/20">
+                    <span className="text-muted-foreground">ETF Flow (US$m)</span>
+                    <span className="flex items-center gap-2">
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        evidence.etfFlow.tag === 'Supportive' ? 'bg-green-500/20 text-green-400' :
+                        evidence.etfFlow.tag === 'Drag' ? 'bg-red-500/20 text-red-400' :
+                        'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {evidence.etfFlow.tag}
+                      </span>
+                      <span>
+                        today: {evidence.etfFlow.today !== null ? `${evidence.etfFlow.today >= 0 ? '+' : ''}${evidence.etfFlow.today.toFixed(1)}` : 'N/A'} | 
+                        5D: {evidence.etfFlow.rolling5d !== null ? `${evidence.etfFlow.rolling5d >= 0 ? '+' : ''}${evidence.etfFlow.rolling5d.toFixed(1)}` : 'N/A'} | 
+                        20D: {evidence.etfFlow.rolling20d !== null ? `${evidence.etfFlow.rolling20d >= 0 ? '+' : ''}${evidence.etfFlow.rolling20d.toFixed(1)}` : 'N/A'}
+                      </span>
+                    </span>
+                  </div>
+                  {/* ETF Flow as_of_date */}
+                  <div className="text-xs text-muted-foreground text-right -mt-1">
+                    as_of: {evidence.etfFlow.asOfDate || 'N/A'}
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between items-center p-2 rounded bg-muted/20">
+                  <span className="text-muted-foreground">ETF Flow (US$m)</span>
+                  <span className="text-yellow-500">数据迁移中 - 请重新生成报告</span>
+                </div>
+              )}
             </div>
             
             {/* Missing Fields */}

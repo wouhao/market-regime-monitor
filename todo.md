@@ -247,3 +247,17 @@
   - [x] 实现DefiLlama历史数据获取
   - [x] 回填30天Stablecoin数据
   - [x] 补全stablecoin_7d和stablecoin_30d字段
+
+## 功能更新 (2026-02-01 - Stablecoin计算 + ETF Flow替代Exchange netflow)
+- [x] 实现 Stablecoin 7D/30D 变化计算
+  - [x] 从历史数据计算7D变化率
+  - [x] 从历史数据计算30D变化率
+  - [x] 更新Liquidity标签逻辑 (Expanding/Contracting/Unknown)
+- [x] 用 ETF Flow 替代 Exchange netflow
+  - [x] 移除证据链中的Exchange netflow行
+  - [x] 新增ETF Flow行 (today/5D/20D/as_of_date)
+  - [x] 实现ETF Flow子标签 (Supportive/Drag/Neutral)
+  - [x] 更新缺失字段提示（不再包含exchange netflow）
+- [x] 前端UI更新
+  - [x] 更新BTC市场分析卡片显示
+  - [x] 添加ETF Flow子标签显示
