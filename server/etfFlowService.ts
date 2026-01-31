@@ -694,3 +694,69 @@ export async function getEtfFlowStats(): Promise<{
     oldestDate: records[records.length - 1].date
   };
 }
+
+/**
+ * 检查ETF Flow数据库是否为空
+ */
+export async function isEtfFlowDbEmpty(): Promise<boolean> {
+  const stats = await getEtfFlowStats();
+  return stats.totalRecords === 0;
+}
+
+/**
+ * 初始化ETF Flow数据（如果数据库为空则自动拉取历史数据）
+ * 服务器启动时调用
+ */
+export async function initEtfFlowData(): Promise<{
+  initialized: boolean;
+  message: string;
+}> {
+  console.log("[ETF Service] Checking if ETF Flow data needs initialization...");
+  
+  // 检查是否启用
+  const enabled = await isEtfFlowEnabled();
+  if (!enabled) {
+    console.log("[ETF Service] ETF Flow module is disabled, skipping initialization");
+    return {
+      initialized: false,
+      message: "ETF Flow module is disabled"
+    };
+  }
+  
+  // 检查数据库是否为空
+  const isEmpty = await isEtfFlowDbEmpty();
+  if (!isEmpty) {
+    const stats = await getEtfFlowStats();
+    console.log(`[ETF Service] ETF Flow data already exists: ${stats.totalRecords} records, latest: ${stats.latestDate}`);
+    return {
+      initialized: false,
+      message: `Data already exists: ${stats.totalRecords} records`
+    };
+  }
+  
+  // 数据库为空，执行初始化
+  console.log("[ETF Service] Database is empty, starting initial data fetch...");
+  
+  try {
+    const result = await runEtfFlowFetch();
+    if (result.success) {
+      console.log(`[ETF Service] Initial data fetch completed: ${result.message}`);
+      return {
+        initialized: true,
+        message: result.message
+      };
+    } else {
+      console.warn(`[ETF Service] Initial data fetch failed: ${result.message}`);
+      return {
+        initialized: false,
+        message: result.message
+      };
+    }
+  } catch (error) {
+    console.error("[ETF Service] Initial data fetch error:", error);
+    return {
+      initialized: false,
+      message: `Error: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+}

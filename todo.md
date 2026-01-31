@@ -173,3 +173,9 @@
 - [x] 周末/假日标注
 - [x] manifest 字段：http_status, missing_reason, raw_row_snippet
 - [x] 单元测试覆盖（20个测试用例）
+
+## Bug修复 (2026-01-31 - ETF Flow不显示)
+- [x] 问题：ETF Flow卡片不显示，因为数据库为空
+- [x] 解决方案：服务器启动时自动检测并初始化ETF数据
+- [x] 在schedulerService中添加启动时检查逻辑
+- [x] 如果btc_etf_flows表为空，自动触发backfill抓取历史数据

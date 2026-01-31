@@ -20,7 +20,7 @@ import {
   getCryptoMetricsDaysAgo,
   updateReportAIAnalysis,
 } from "../db";
-import { runEtfFlowFetch, isEtfFlowEnabled } from "../etfFlowService";
+import { runEtfFlowFetch, isEtfFlowEnabled, initEtfFlowData } from "../etfFlowService";
 
 // 系统用户ID（用于定时任务生成的报告，使用owner的配置）
 const SYSTEM_USER_ID = 1;
@@ -218,13 +218,23 @@ async function generateScheduledReport(): Promise<void> {
  * 每天北京时间9点执行
  * 使用 timezone 选项直接指定北京时区
  */
-export function initScheduler(): void {
+export async function initScheduler(): Promise<void> {
   // Cron格式：分 时 日 月 周（node-cron 默认5字段格式）
   const cronExpression = "0 9 * * *"; // 每天9:00
   
   console.log("[Scheduler] Initializing scheduled task...");
   console.log("[Scheduler] Cron expression:", cronExpression);
   console.log("[Scheduler] Schedule: Daily at 09:00 Beijing Time (Asia/Shanghai)");
+  
+  // 初始化ETF Flow数据（如果数据库为空则自动拉取）
+  try {
+    const etfInitResult = await initEtfFlowData();
+    if (etfInitResult.initialized) {
+      console.log(`[Scheduler] ETF Flow data initialized: ${etfInitResult.message}`);
+    }
+  } catch (error) {
+    console.error("[Scheduler] ETF Flow initialization error:", error);
+  }
   
   const task = cron.schedule(cronExpression, async () => {
     console.log("[Scheduler] Triggered at", new Date().toISOString());

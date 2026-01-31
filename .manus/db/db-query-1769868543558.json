@@ -1,0 +1,80 @@
+{
+  "query": "SELECT date, total, ibit, fbtc, gbtc FROM btc_etf_flows ORDER BY date DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute SELECT date, total, ibit, fbtc, gbtc FROM btc_etf_flows ORDER BY date DESC LIMIT 10;",
+  "rows": [
+    {
+      "date": "2024-02-12",
+      "total": "493.40",
+      "ibit": "374.70",
+      "fbtc": "151.90",
+      "gbtc": "-95.00"
+    },
+    {
+      "date": "2024-02-09",
+      "total": "541.50",
+      "ibit": "250.70",
+      "fbtc": "188.40",
+      "gbtc": "-51.80"
+    },
+    {
+      "date": "2024-02-08",
+      "total": "405.00",
+      "ibit": "204.10",
+      "fbtc": "128.30",
+      "gbtc": "-101.60"
+    },
+    {
+      "date": "2024-02-07",
+      "total": "146.00",
+      "ibit": "56.20",
+      "fbtc": "130.10",
+      "gbtc": "-80.80"
+    },
+    {
+      "date": "2024-02-06",
+      "total": "33.60",
+      "ibit": "45.20",
+      "fbtc": "37.70",
+      "gbtc": "-72.70"
+    },
+    {
+      "date": "2024-02-05",
+      "total": "68.10",
+      "ibit": "137.30",
+      "fbtc": "38.00",
+      "gbtc": "-107.90"
+    },
+    {
+      "date": "2024-02-02",
+      "total": "80.00",
+      "ibit": "105.80",
+      "fbtc": "78.90",
+      "gbtc": "-144.60"
+    },
+    {
+      "date": "2024-02-01",
+      "total": "38.50",
+      "ibit": "163.90",
+      "fbtc": "35.80",
+      "gbtc": "-182.00"
+    },
+    {
+      "date": "2024-01-31",
+      "total": "197.60",
+      "ibit": "116.20",
+      "fbtc": "232.00",
+      "gbtc": "-187.70"
+    },
+    {
+      "date": "2024-01-30",
+      "total": "247.30",
+      "ibit": "299.20",
+      "fbtc": "119.20",
+      "gbtc": "-220.70"
+    }
+  ],
+  "messages": [],
+  "stdout": "date\ttotal\tibit\tfbtc\tgbtc\n2024-02-12\t493.40\t374.70\t151.90\t-95.00\n2024-02-09\t541.50\t250.70\t188.40\t-51.80\n2024-02-08\t405.00\t204.10\t128.30\t-101.60\n2024-02-07\t146.00\t56.20\t130.10\t-80.80\n2024-02-06\t33.60\t45.20\t37.70\t-72.70\n2024-02-05\t68.10\t137.30\t38.00\t-107.90\n2024-02-02\t80.00\t105.80\t78.90\t-144.60\n2024-02-01\t38.50\t163.90\t35.80\t-182.00\n2024-01-31\t197.60\t116.20\t232.00\t-187.70\n2024-01-30\t247.30\t299.20\t119.20\t-220.70\n",
+  "stderr": "",
+  "execution_time_ms": 1540
+}

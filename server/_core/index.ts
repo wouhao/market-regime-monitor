@@ -58,11 +58,12 @@ async function startServer() {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
-  server.listen(port, () => {
+  server.listen(port, async () => {
     console.log(`Server running on http://localhost:${port}/`);
     
     // 初始化定时任务（每天北京时间9点自动生成报告）
-    initScheduler();
+    // 同时检查并初始化ETF Flow数据
+    await initScheduler();
   });
 }
 
