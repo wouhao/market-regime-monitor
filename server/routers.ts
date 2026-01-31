@@ -216,6 +216,10 @@ export const appRouter = router({
         const lastReport = await getLatestReport();
         const previousRegime = lastReport?.regime;
         
+        // 获取加密指标历史数据（用于计算市场快照表格中的变化率）
+        const cryptoHistory = await getCryptoMetricsRange(31);
+        (global as Record<string, unknown>).__cryptoHistory = cryptoHistory;
+        
         // 生成报告 (CoinGlass OI + Coinalyze Liq + Binance Funding + DefiLlama Stablecoin)
         const reportData = await generateMarketReport(fredApiKey, coinalyzeApiKey, coinglassApiKey, previousRegime);
         

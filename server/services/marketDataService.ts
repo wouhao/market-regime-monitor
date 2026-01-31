@@ -2,6 +2,7 @@
  * Market Data Service - 市场数据抓取和处理服务
  */
 import axios from "axios";
+import type { CryptoMetricsDaily } from "../../drizzle/schema";
 
 // 数据源接口定义
 export interface MarketIndicator {
@@ -701,13 +702,53 @@ export async function fetchAllMarketData(fredApiKey: string, coinalyzeApiKey?: s
     
     const ma20 = calculateMA20(prices);
     
+    // 对于加密货币指标，从历史数据计算变化率
+    let change1d: number | null = calculateChange(prices, 1);
+    let change7d: number | null = calculateChange(prices, 7);
+    let change30d: number | null = calculateChange(prices, 30);
+    
+    // 如果是加密指标且没有历史价格数据，尝试从 crypto_metrics_daily 表计算
+    if (prices.length === 0 && latest !== null && 
+        (config.indicator === "crypto_funding" || 
+         config.indicator === "crypto_oi" || 
+         config.indicator === "crypto_liquidations" || 
+         config.indicator === "stablecoin")) {
+      // 标记需要从历史数据计算
+      const cryptoHistory = (global as Record<string, unknown>).__cryptoHistory as CryptoMetricsDaily[] | undefined;
+      if (cryptoHistory && cryptoHistory.length > 0) {
+        const fieldMap: Record<string, keyof CryptoMetricsDaily> = {
+          "crypto_funding": "funding",
+          "crypto_oi": "oiUsd",
+          "crypto_liquidations": "liq24hUsd",
+          "stablecoin": "stableUsdtUsdcUsd"
+        };
+        const field = fieldMap[config.indicator];
+        if (field) {
+          // cryptoHistory[0] 是最新的，cryptoHistory[1] 是昨天...
+          const d1Value = cryptoHistory[1]?.[field];
+          const d7Value = cryptoHistory[7]?.[field];
+          const d30Value = cryptoHistory[30]?.[field];
+          
+          if (d1Value !== null && d1Value !== undefined && Number(d1Value) !== 0) {
+            change1d = ((latest - Number(d1Value)) / Math.abs(Number(d1Value))) * 100;
+          }
+          if (d7Value !== null && d7Value !== undefined && Number(d7Value) !== 0) {
+            change7d = ((latest - Number(d7Value)) / Math.abs(Number(d7Value))) * 100;
+          }
+          if (d30Value !== null && d30Value !== undefined && Number(d30Value) !== 0) {
+            change30d = ((latest - Number(d30Value)) / Math.abs(Number(d30Value))) * 100;
+          }
+        }
+      }
+    }
+    
     results.push({
       indicator: config.indicator,
       displayName: config.displayName,
       latestValue: latest,
-      change1d: calculateChange(prices, 1),
-      change7d: calculateChange(prices, 7),
-      change30d: calculateChange(prices, 30),
+      change1d,
+      change7d,
+      change30d,
       ma20,
       aboveMa20: latest !== null && ma20 !== null ? latest > ma20 : null,
       sparklineData: prices.slice(-30),
