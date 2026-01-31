@@ -1,0 +1,50 @@
+{
+  "query": "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'market_reports' AND COLUMN_NAME LIKE 'btc%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'market_reports' AND COLUMN_NAME LIKE 'btc%';",
+  "rows": [
+    {
+      "COLUMN_NAME": "btcState",
+      "DATA_TYPE": "enum",
+      "COLUMN_TYPE": "enum('S1','S2','S3','S4')"
+    },
+    {
+      "COLUMN_NAME": "btcLiquidityTag",
+      "DATA_TYPE": "enum",
+      "COLUMN_TYPE": "enum('Expanding','Contracting','Unknown')"
+    },
+    {
+      "COLUMN_NAME": "btcConfidence",
+      "DATA_TYPE": "enum",
+      "COLUMN_TYPE": "enum('watch','confirmed')"
+    },
+    {
+      "COLUMN_NAME": "btcEvidenceJson",
+      "DATA_TYPE": "json",
+      "COLUMN_TYPE": "json"
+    },
+    {
+      "COLUMN_NAME": "btc_state",
+      "DATA_TYPE": "varchar",
+      "COLUMN_TYPE": "varchar(10)"
+    },
+    {
+      "COLUMN_NAME": "btc_liquidity_tag",
+      "DATA_TYPE": "varchar",
+      "COLUMN_TYPE": "varchar(20)"
+    },
+    {
+      "COLUMN_NAME": "btc_confidence",
+      "DATA_TYPE": "varchar",
+      "COLUMN_TYPE": "varchar(20)"
+    },
+    {
+      "COLUMN_NAME": "btc_evidence_json",
+      "DATA_TYPE": "json",
+      "COLUMN_TYPE": "json"
+    }
+  ],
+  "messages": [],
+  "stdout": "COLUMN_NAME\tDATA_TYPE\tCOLUMN_TYPE\nbtcState\tenum\tenum('S1','S2','S3','S4')\nbtcLiquidityTag\tenum\tenum('Expanding','Contracting','Unknown')\nbtcConfidence\tenum\tenum('watch','confirmed')\nbtcEvidenceJson\tjson\tjson\nbtc_state\tvarchar\tvarchar(10)\nbtc_liquidity_tag\tvarchar\tvarchar(20)\nbtc_confidence\tvarchar\tvarchar(20)\nbtc_evidence_json\tjson\tjson\n",
+  "stderr": "",
+  "execution_time_ms": 1545
+}

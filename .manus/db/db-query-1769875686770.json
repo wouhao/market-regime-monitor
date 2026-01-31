@@ -1,0 +1,74 @@
+{
+  "query": "SHOW COLUMNS FROM market_reports LIKE 'btc%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute SHOW COLUMNS FROM market_reports LIKE 'btc%';",
+  "rows": [
+    {
+      "Field": "btcState",
+      "Type": "enum('S1','S2','S3','S4')",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "btcLiquidityTag",
+      "Type": "enum('Expanding','Contracting','Unknown')",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "btcConfidence",
+      "Type": "enum('watch','confirmed')",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "btcEvidenceJson",
+      "Type": "json",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "btc_state",
+      "Type": "varchar(10)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "btc_liquidity_tag",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "btc_confidence",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "btc_evidence_json",
+      "Type": "json",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tNull\tKey\tDefault\tExtra\nbtcState\tenum('S1','S2','S3','S4')\tYES\t\tNULL\t\nbtcLiquidityTag\tenum('Expanding','Contracting','Unknown')\tYES\t\tNULL\t\nbtcConfidence\tenum('watch','confirmed')\tYES\t\tNULL\t\nbtcEvidenceJson\tjson\tYES\t\tNULL\t\nbtc_state\tvarchar(10)\tYES\t\tNULL\t\nbtc_liquidity_tag\tvarchar(20)\tYES\t\tNULL\t\nbtc_confidence\tvarchar(20)\tYES\t\tNULL\t\nbtc_evidence_json\tjson\tYES\t\tNULL\t\n",
+  "stderr": "",
+  "execution_time_ms": 1577
+}

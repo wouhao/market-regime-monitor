@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE market_reports \nADD COLUMN btc_state VARCHAR(10) DEFAULT NULL,\nADD COLUMN btc_liquidity_tag VARCHAR(20) DEFAULT NULL,\nADD COLUMN btc_confidence VARCHAR(20) DEFAULT NULL,\nADD COLUMN btc_evidence_json JSON DEFAULT NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute ALTER TABLE market_reports \nADD COLUMN btc_state VARCHAR(10) DEFAULT NULL,\nADD COLUMN btc_liquidity_tag VARCHAR(20) DEFAULT NULL,\nADD COLUMN btc_confidence VARCHAR(20) DEFAULT NULL,\nADD COLUMN btc_evidence_json JSON DEFAULT NULL;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2731
+}

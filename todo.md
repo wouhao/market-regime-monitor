@@ -205,3 +205,23 @@
 - [x] 从schedulerService.ts中移除ETF Flow数据获取
 - [x] 更新测试文件移除etfFlowData
 - [x] 测试验证回退后功能正常 (49个测试全部通过)
+
+## 新功能 (2026-01-31 - BTC市场分析独立模块)
+- [x] 数据库schema变更：market_reports表新增btc_state/btc_liquidity_tag/btc_confidence/btc_evidence_json字段
+- [x] 实现历史快照查询：获取过去7天的OI/Funding/Liquidations数据
+- [x] 实现数据计算逻辑：
+  - [x] OI 7D pct/abs计算
+  - [x] Liq 7D total/avg计算（任一天缺失→missing）
+  - [x] Funding 7D avg计算（任一天缺失→missing）
+- [x] 实现状态分类逻辑（S1-S4）：
+  - [x] S1杠杆堆积：OI↑ + funding偏正/升 + 价格上行（满足2条）
+  - [x] S2去杠杆/出清：价格7D<-5% + OI↓ + 清算上升（满足2条）
+  - [x] S3低杠杆修复：价格回升 + OI不升/小升 + 清算回落 + funding不极端（满足2条）
+  - [x] S4中性/混合：不满足以上或数据缺失多
+- [x] 实现流动性标签：Expanding/Contracting/Unknown
+- [x] 实现可信度判断：连续2次相同→confirmed，否则watch；关键字段缺失→强制watch
+- [x] 集成到报告生成流程（routers.ts + schedulerService.ts）
+- [x] 前端Dashboard新增BTC市场分析独立卡片
+- [x] AI分析输出新增BTC市场分析独立段落（与执行开关隔离）
+- [x] 工程约束：Fail-closed + 禁止填0 + 禁止交易建议 + 与执行开关隔离
+- [x] 单元测试覆盖 (72个测试全部通过)

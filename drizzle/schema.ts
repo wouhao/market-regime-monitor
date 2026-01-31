@@ -48,6 +48,19 @@ export const marketReports = mysqlTable("market_reports", {
     fullText: string;
     generatedAt: number;
   }>(),
+  // BTC市场分析独立模块
+  btcState: mysqlEnum("btcState", ["S1", "S2", "S3", "S4"]), // S1杠杆堆积/S2去杠杆/S3低杠杆修复/S4中性
+  btcLiquidityTag: mysqlEnum("btcLiquidityTag", ["Expanding", "Contracting", "Unknown"]),
+  btcConfidence: mysqlEnum("btcConfidence", ["watch", "confirmed"]),
+  btcEvidenceJson: json("btcEvidenceJson").$type<{
+    price: { latest: number | null; pct7d: number | null; pct30d: number | null; asOf: string };
+    oi: { latest: number | null; pct7d: number | null; abs7d: number | null; asOf: string };
+    funding: { latest: number | null; avg7d: number | null; asOf: string };
+    liquidations: { h24: number | null; total7d: number | null; avg7d: number | null; asOf: string; missingDays?: number };
+    stablecoin: { latest: number | null; pct7d: number | null; pct30d: number | null; asOf: string };
+    exchangeNetflow: { value: null; reason: string };
+    missingFields: string[];
+  }>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

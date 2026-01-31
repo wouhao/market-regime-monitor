@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, btc_state, btc_liquidity_tag, btc_confidence FROM market_reports ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute SELECT id, btc_state, btc_liquidity_tag, btc_confidence FROM market_reports ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "90004",
+      "btc_state": "NULL",
+      "btc_liquidity_tag": "NULL",
+      "btc_confidence": "NULL"
+    },
+    {
+      "id": "90003",
+      "btc_state": "NULL",
+      "btc_liquidity_tag": "NULL",
+      "btc_confidence": "NULL"
+    },
+    {
+      "id": "90002",
+      "btc_state": "NULL",
+      "btc_liquidity_tag": "NULL",
+      "btc_confidence": "NULL"
+    },
+    {
+      "id": "90001",
+      "btc_state": "NULL",
+      "btc_liquidity_tag": "NULL",
+      "btc_confidence": "NULL"
+    },
+    {
+      "id": "60002",
+      "btc_state": "NULL",
+      "btc_liquidity_tag": "NULL",
+      "btc_confidence": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbtc_state\tbtc_liquidity_tag\tbtc_confidence\n90004\tNULL\tNULL\tNULL\n90003\tNULL\tNULL\tNULL\n90002\tNULL\tNULL\tNULL\n90001\tNULL\tNULL\tNULL\n60002\tNULL\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 1582
+}

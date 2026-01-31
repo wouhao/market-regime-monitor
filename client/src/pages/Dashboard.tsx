@@ -670,6 +670,16 @@ export default function Dashboard() {
             />
           )}
 
+          {/* BTC 市场分析卡片 - 独立模块 */}
+          {report.btcState && (
+            <BtcAnalysisCard 
+              btcState={report.btcState}
+              btcLiquidityTag={report.btcLiquidityTag}
+              btcConfidence={report.btcConfidence}
+              btcEvidenceJson={report.btcEvidenceJson}
+            />
+          )}
+
           {/* 执行开关 - 移到ETF Flow下方 */}
           <Card>
             <CardHeader>
@@ -1108,6 +1118,240 @@ function EtfFlowCard({
           >
             查看完整数据 <ExternalLink className="h-3 w-3" />
           </a>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+// BTC 市场分析证据链类型
+interface BtcEvidence {
+  price: { latest: number | null; pct7d: number | null; pct30d: number | null; asOf: string };
+  oi: { latest: number | null; pct7d: number | null; abs7d: number | null; asOf: string };
+  funding: { latest: number | null; avg7d: number | null; asOf: string };
+  liquidations: { h24: number | null; total7d: number | null; avg7d: number | null; asOf: string; missingDays?: number };
+  stablecoin: { latest: number | null; pct7d: number | null; pct30d: number | null; asOf: string };
+  exchangeNetflow: { value: null; reason: string };
+  missingFields: string[];
+}
+
+// BTC 市场分析卡片组件 - 独立模块，与执行开关隔离
+function BtcAnalysisCard({ 
+  btcState, 
+  btcLiquidityTag, 
+  btcConfidence, 
+  btcEvidenceJson 
+}: { 
+  btcState: string;
+  btcLiquidityTag: string | null;
+  btcConfidence: string | null;
+  btcEvidenceJson: BtcEvidence | null;
+}) {
+  // 状态标签配置
+  const stateConfig: Record<string, { label: string; description: string; color: string; bgColor: string }> = {
+    S1: { 
+      label: "S1 杠杆堆积", 
+      description: "OI上升 + Funding偏正 + 价格上行",
+      color: "text-orange-400",
+      bgColor: "from-orange-500/10 to-orange-900/10 border-orange-500/30"
+    },
+    S2: { 
+      label: "S2 去杠杆/出清", 
+      description: "价格下跌 + OI下降 + 清算上升",
+      color: "text-red-400",
+      bgColor: "from-red-500/10 to-red-900/10 border-red-500/30"
+    },
+    S3: { 
+      label: "S3 低杠杆修复", 
+      description: "价格回升 + OI平稳 + 清算回落",
+      color: "text-green-400",
+      bgColor: "from-green-500/10 to-green-900/10 border-green-500/30"
+    },
+    S4: { 
+      label: "S4 中性/混合", 
+      description: "未满足明确状态条件",
+      color: "text-gray-400",
+      bgColor: "from-gray-500/10 to-gray-900/10 border-gray-500/30"
+    },
+  };
+
+  // 流动性标签配置
+  const liquidityConfig: Record<string, { label: string; color: string }> = {
+    Expanding: { label: "流动性扩张", color: "text-green-400" },
+    Contracting: { label: "流动性收缩", color: "text-red-400" },
+    Unknown: { label: "流动性未知", color: "text-gray-400" },
+  };
+
+  const state = stateConfig[btcState] || stateConfig.S4;
+  const liquidity = liquidityConfig[btcLiquidityTag || "Unknown"] || liquidityConfig.Unknown;
+  const confidence = btcConfidence || "watch";
+  const evidence = btcEvidenceJson;
+
+  // 格式化数值
+  const formatPrice = (value: number | null) => {
+    if (value === null) return "missing";
+    return `$${value.toLocaleString()}`;
+  };
+
+  const formatPct = (value: number | null) => {
+    if (value === null) return "missing";
+    return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+  };
+
+  const formatOi = (value: number | null) => {
+    if (value === null) return "missing";
+    return `$${(value / 1e9).toFixed(2)}B`;
+  };
+
+  const formatOiAbs = (value: number | null) => {
+    if (value === null) return "";
+    return `(${value >= 0 ? '+' : ''}$${(value / 1e6).toFixed(0)}M)`;
+  };
+
+  const formatFunding = (value: number | null) => {
+    if (value === null) return "missing";
+    return `${(value * 100).toFixed(4)}%`;
+  };
+
+  const formatLiq = (value: number | null) => {
+    if (value === null) return "missing";
+    return `$${(value / 1e6).toFixed(1)}M`;
+  };
+
+  const formatStable = (value: number | null) => {
+    if (value === null) return "missing";
+    return `$${(value / 1e9).toFixed(1)}B`;
+  };
+
+  return (
+    <Card className={`border bg-gradient-to-br ${state.bgColor}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className={`flex items-center gap-2 ${state.color}`}>
+            <Activity className="h-5 w-5" />
+            BTC 市场分析
+            <Badge 
+              variant="outline" 
+              className={`ml-2 text-xs font-normal ${confidence === 'confirmed' ? 'border-green-500 text-green-400' : 'border-yellow-500 text-yellow-400'}`}
+            >
+              {confidence === 'confirmed' ? '已确认' : '观察中'}
+            </Badge>
+          </CardTitle>
+          <div className="text-xs text-muted-foreground">
+            {evidence?.price.asOf || '--'}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* 状态和流动性 */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="p-3 rounded-lg bg-muted/30">
+            <div className="text-xs text-muted-foreground mb-1">状态</div>
+            <div className={`text-lg font-semibold ${state.color}`}>{state.label}</div>
+            <div className="text-xs text-muted-foreground mt-1">{state.description}</div>
+          </div>
+          <div className="p-3 rounded-lg bg-muted/30">
+            <div className="text-xs text-muted-foreground mb-1">流动性</div>
+            <div className={`text-lg font-semibold ${liquidity.color}`}>{liquidity.label}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              基于 Stablecoin 7D/30D 变化
+            </div>
+          </div>
+        </div>
+
+        {/* 证据链 */}
+        {evidence && (
+          <div className="space-y-3">
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              证据链
+            </div>
+            <div className="grid gap-2 text-sm">
+              {/* Price */}
+              <div className="flex justify-between items-center p-2 rounded bg-muted/20">
+                <span className="text-muted-foreground">Price</span>
+                <span>
+                  {formatPrice(evidence.price.latest)} | 
+                  7D: <span className={evidence.price.pct7d !== null && evidence.price.pct7d >= 0 ? 'text-green-400' : 'text-red-400'}>
+                    {formatPct(evidence.price.pct7d)}
+                  </span> | 
+                  30D: <span className={evidence.price.pct30d !== null && evidence.price.pct30d >= 0 ? 'text-green-400' : 'text-red-400'}>
+                    {formatPct(evidence.price.pct30d)}
+                  </span>
+                </span>
+              </div>
+              
+              {/* OI */}
+              <div className="flex justify-between items-center p-2 rounded bg-muted/20">
+                <span className="text-muted-foreground">OI</span>
+                <span>
+                  {formatOi(evidence.oi.latest)} | 
+                  7D: <span className={evidence.oi.pct7d !== null && evidence.oi.pct7d >= 0 ? 'text-green-400' : 'text-red-400'}>
+                    {formatPct(evidence.oi.pct7d)}
+                  </span> {formatOiAbs(evidence.oi.abs7d)}
+                </span>
+              </div>
+              
+              {/* Funding */}
+              <div className="flex justify-between items-center p-2 rounded bg-muted/20">
+                <span className="text-muted-foreground">Funding</span>
+                <span>
+                  {formatFunding(evidence.funding.latest)} | 
+                  7D avg: {formatFunding(evidence.funding.avg7d)}
+                </span>
+              </div>
+              
+              {/* Liquidations */}
+              <div className="flex justify-between items-center p-2 rounded bg-muted/20">
+                <span className="text-muted-foreground">Liq</span>
+                <span>
+                  24h: {formatLiq(evidence.liquidations.h24)} | 
+                  7D total: {evidence.liquidations.total7d !== null ? `$${(evidence.liquidations.total7d / 1e6).toFixed(0)}M` : 'missing'} | 
+                  7D avg: {formatLiq(evidence.liquidations.avg7d)}
+                  {evidence.liquidations.missingDays && evidence.liquidations.missingDays > 0 && (
+                    <span className="text-yellow-500 ml-1">(missing {evidence.liquidations.missingDays} days)</span>
+                  )}
+                </span>
+              </div>
+              
+              {/* Stablecoin */}
+              <div className="flex justify-between items-center p-2 rounded bg-muted/20">
+                <span className="text-muted-foreground">Stablecoin</span>
+                <span>
+                  {formatStable(evidence.stablecoin.latest)} | 
+                  7D: <span className={evidence.stablecoin.pct7d !== null && evidence.stablecoin.pct7d >= 0 ? 'text-green-400' : 'text-red-400'}>
+                    {formatPct(evidence.stablecoin.pct7d)}
+                  </span> | 
+                  30D: <span className={evidence.stablecoin.pct30d !== null && evidence.stablecoin.pct30d >= 0 ? 'text-green-400' : 'text-red-400'}>
+                    {formatPct(evidence.stablecoin.pct30d)}
+                  </span>
+                </span>
+              </div>
+              
+              {/* Exchange Netflow */}
+              <div className="flex justify-between items-center p-2 rounded bg-muted/20">
+                <span className="text-muted-foreground">Exchange netflow</span>
+                <span className="text-yellow-500">{evidence.exchangeNetflow.reason}</span>
+              </div>
+            </div>
+            
+            {/* Missing Fields */}
+            {evidence.missingFields.length > 0 && (
+              <div className="flex items-center gap-2 p-2 rounded bg-yellow-500/10 border border-yellow-500/30">
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                <span className="text-xs text-yellow-500">
+                  缺失字段: {evidence.missingFields.join(", ")}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 免责声明 */}
+        <div className="text-xs text-muted-foreground pt-2 border-t border-muted/30 flex items-center gap-1">
+          <Info className="h-3 w-3" />
+          本模块仅做市场状态描述/诊断，不构成任何投资建议
         </div>
       </CardContent>
     </Card>

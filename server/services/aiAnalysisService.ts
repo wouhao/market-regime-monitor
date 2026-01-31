@@ -28,6 +28,12 @@ export interface AIAnalysisInput {
     putSelling: string;
     spotPace: string;
   };
+  btcAnalysis?: {
+    state: string;
+    liquidityTag: string;
+    confidence: string;
+    formattedText: string; // 预格式化的BTC分析文本
+  } | null;
 }
 
 export interface AIAnalysisResult {
@@ -208,6 +214,11 @@ function buildUserMessage(input: AIAnalysisInput): string {
 - **上次情景**: ${previousRegime ? previousRegime.toUpperCase() : "无"}
 - **触发规则**: ${triggeredRules.length > 0 ? triggeredRules.join(", ") : "无"}
 
+${input.btcAnalysis ? `## BTC 市场分析（独立模块，与执行开关隔离）
+${input.btcAnalysis.formattedText}
+
+**重要**：BTC市场分析仅做状态描述/诊断，禁止输出任何BTC买卖/仓位/杠杆建议。
+` : ''}
 ## 当前执行开关（针对美股配置）
 - [IBKR] Margin-loan: ${switches.marginBorrow}
 - [US Equities] Put-selling: ${switches.putSelling}

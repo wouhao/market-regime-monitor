@@ -33,7 +33,17 @@ import {
   updateReportAIAnalysis,
   getReportAIAnalysis,
   AIAnalysisData,
+  updateReportBtcAnalysis,
+  getLatestBtcState,
+  getCryptoMetricsRange,
+  BtcAnalysisData,
 } from "./db";
+import {
+  analyzeBtcMarket,
+  formatBtcAnalysisForAI,
+  BtcAnalysisInput,
+  BtcAnalysisResult,
+} from "./services/btcAnalysisService";
 import {
   fetchFarsideData,
   saveEtfFlowData,
@@ -263,6 +273,16 @@ export const appRouter = router({
         
         console.log(`[API] Report generated successfully, ID: ${reportId}`);
         
+        // 生成BTC市场分析（独立模块）
+        try {
+          const btcAnalysisResult = await generateBtcAnalysisForReport(reportId, reportData.snapshots, cryptoMetrics);
+          if (btcAnalysisResult) {
+            console.log(`[API] BTC analysis generated: ${btcAnalysisResult.state} (${btcAnalysisResult.confidence})`);
+          }
+        } catch (err) {
+          console.warn(`[API] Failed to generate BTC analysis:`, err);
+        }
+        
         return {
           success: true,
           message: "报告生成成功",
@@ -359,6 +379,24 @@ export const appRouter = router({
           const reports = await getReportHistory(2);
           const previousReport = reports.length > 1 ? reports[1] : null;
           
+          // 获取BTC市场分析数据（如果存在）
+          let btcAnalysisForAI: { state: string; liquidityTag: string; confidence: string; formattedText: string } | null = null;
+          if (report.btcState && report.btcEvidenceJson) {
+            const btcResult: BtcAnalysisResult = {
+              state: report.btcState as any,
+              liquidityTag: (report.btcLiquidityTag || 'Unknown') as any,
+              confidence: (report.btcConfidence || 'watch') as any,
+              evidence: report.btcEvidenceJson as any,
+              stateReasons: [],
+            };
+            btcAnalysisForAI = {
+              state: report.btcState,
+              liquidityTag: report.btcLiquidityTag || 'Unknown',
+              confidence: report.btcConfidence || 'watch',
+              formattedText: formatBtcAnalysisForAI(btcResult),
+            };
+          }
+          
           // 调用AI分析
           const analysis = await generateAIAnalysis({
             snapshots: snapshots.map(s => ({
@@ -383,6 +421,7 @@ export const appRouter = router({
               putSelling: report.putSelling,
               spotPace: report.spotPace,
             },
+            btcAnalysis: btcAnalysisForAI,
           });
           
           console.log("[API] AI analysis generated successfully");
@@ -673,3 +712,106 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
+
+// ============ BTC 市场分析辅助函数 ============
+
+interface CryptoMetricsExtract {
+  funding: number | null;
+  oiUsd: number | null;
+  liq24hUsd: number | null;
+  stableUsdtUsdcUsd: number | null;
+  sources: {
+    funding: string | null;
+    oi: string | null;
+    liq: string | null;
+    stable: string | null;
+  };
+}
+
+async function generateBtcAnalysisForReport(
+  reportId: number,
+  snapshots: MarketIndicator[],
+  cryptoMetrics: CryptoMetricsExtract
+): Promise<BtcAnalysisResult | null> {
+  try {
+    // 获取BTC价格数据
+    const btcSnapshot = snapshots.find(s => s.indicator === "BTC-USD");
+    const btcPrice = btcSnapshot?.latestValue || null;
+    const btcPrice7dPct = btcSnapshot?.change7d || null;
+    const btcPrice30dPct = btcSnapshot?.change30d || null;
+    
+    // 获取当前加密指标
+    const fundingLatest = cryptoMetrics.funding;
+    const oiLatest = cryptoMetrics.oiUsd;
+    const liq24h = cryptoMetrics.liq24hUsd;
+    const stablecoinLatest = cryptoMetrics.stableUsdtUsdcUsd;
+    
+    // 获取Stablecoin趋势
+    const stableSnapshot = snapshots.find(s => s.indicator === "stablecoin");
+    const stablecoin7dPct = stableSnapshot?.change7d || null;
+    const stablecoin30dPct = stableSnapshot?.change30d || null;
+    
+    // 获取历史数据（过去8天，包含今天）
+    const historicalMetrics = await getCryptoMetricsRange(8);
+    
+    // 获取7天前的OI
+    const oi7dAgo = historicalMetrics.length >= 8 && historicalMetrics[7]?.oiUsd 
+      ? Number(historicalMetrics[7].oiUsd) 
+      : null;
+    
+    // 获取过去7天的funding历史（不包含今天）
+    const funding7dHistory: (number | null)[] = historicalMetrics
+      .slice(1, 8) // 跳过今天，取过去7天
+      .map(m => m.funding ? Number(m.funding) : null);
+    
+    // 获取过去7天的liquidations历史（不包含今天）
+    const liq7dHistory: (number | null)[] = historicalMetrics
+      .slice(1, 8)
+      .map(m => m.liq24hUsd ? Number(m.liq24hUsd) : null);
+    
+    // 获取上一次的BTC状态
+    const previousBtcState = await getLatestBtcState();
+    
+    // 获取当前日期
+    const now = new Date();
+    const bjTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    const asOfDate = bjTime.toISOString().split("T")[0];
+    
+    // 构建输入数据
+    const input: BtcAnalysisInput = {
+      btcPrice,
+      btcPrice7dPct,
+      btcPrice30dPct,
+      fundingLatest,
+      oiLatest,
+      liq24h,
+      stablecoinLatest,
+      stablecoin7dPct,
+      stablecoin30dPct,
+      oi7dAgo,
+      funding7dHistory,
+      liq7dHistory,
+      previousBtcState,
+      asOfDate,
+    };
+    
+    // 执行BTC市场分析
+    const result = analyzeBtcMarket(input);
+    
+    // 保存到数据库
+    const btcAnalysisData: BtcAnalysisData = {
+      btcState: result.state,
+      btcLiquidityTag: result.liquidityTag,
+      btcConfidence: result.confidence,
+      btcEvidenceJson: result.evidence,
+    };
+    
+    await updateReportBtcAnalysis(reportId, btcAnalysisData);
+    console.log(`[BTC Analysis] Saved to report ${reportId}: ${result.state} (${result.confidence})`);
+    
+    return result;
+  } catch (error) {
+    console.error("[BTC Analysis] Failed to generate:", error);
+    return null;
+  }
+}

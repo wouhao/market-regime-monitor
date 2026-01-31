@@ -424,3 +424,58 @@ export async function getReportAIAnalysis(reportId: number): Promise<AIAnalysisD
   
   return result.length > 0 ? result[0].aiAnalysis as AIAnalysisData | null : null;
 }
+
+
+// ============ BTC Analysis Functions ============
+
+import type { BtcState, LiquidityTag, BtcConfidence, BtcEvidence } from "./services/btcAnalysisService";
+
+export interface BtcAnalysisData {
+  btcState: BtcState;
+  btcLiquidityTag: LiquidityTag;
+  btcConfidence: BtcConfidence;
+  btcEvidenceJson: BtcEvidence;
+}
+
+export async function updateReportBtcAnalysis(reportId: number, btcAnalysis: BtcAnalysisData): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+  
+  await db
+    .update(marketReports)
+    .set({
+      btcState: btcAnalysis.btcState,
+      btcLiquidityTag: btcAnalysis.btcLiquidityTag,
+      btcConfidence: btcAnalysis.btcConfidence,
+      btcEvidenceJson: btcAnalysis.btcEvidenceJson,
+    })
+    .where(eq(marketReports.id, reportId));
+}
+
+export async function getLatestBtcState(): Promise<BtcState | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const result = await db
+    .select({ btcState: marketReports.btcState })
+    .from(marketReports)
+    .where(sql`${marketReports.btcState} IS NOT NULL`)
+    .orderBy(desc(marketReports.createdAt))
+    .limit(1);
+  
+  return result.length > 0 ? result[0].btcState as BtcState : null;
+}
+
+// 获取过去N天的加密指标历史（用于计算7D数据）
+export async function getCryptoMetricsRange(days: number): Promise<CryptoMetricsDaily[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db
+    .select()
+    .from(cryptoMetricsDaily)
+    .orderBy(desc(cryptoMetricsDaily.dateBjt))
+    .limit(days);
+}

@@ -43,6 +43,13 @@
       "when": 1769867149397,
       "tag": "0005_green_bloodaxe",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1769873913323,
+      "tag": "0006_careless_manta",
+      "breakpoints": true
     }
   ]
 }
