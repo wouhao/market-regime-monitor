@@ -359,30 +359,6 @@ export const appRouter = router({
           const reports = await getReportHistory(2);
           const previousReport = reports.length > 1 ? reports[1] : null;
           
-          // 获取ETF Flow数据用于AI分析
-          let etfFlowDataForAI = null;
-          try {
-            const etfEnabled = await isEtfFlowEnabled();
-            if (etfEnabled) {
-              const etfData = await getLatestEtfFlow();
-              if (etfData) {
-                etfFlowDataForAI = {
-                  date: etfData.date,
-                  total: etfData.total,
-                  ibit: etfData.ibit,
-                  fbtc: etfData.fbtc,
-                  gbtc: etfData.gbtc,
-                  totalExGbtc: etfData.totalExGbtc,
-                  rolling5d: etfData.rolling5d,
-                  rolling20d: etfData.rolling20d,
-                  alert: etfData.alert,
-                };
-              }
-            }
-          } catch (err) {
-            console.warn("[API] Failed to get ETF flow data for AI:", err);
-          }
-          
           // 调用AI分析
           const analysis = await generateAIAnalysis({
             snapshots: snapshots.map(s => ({
@@ -397,7 +373,6 @@ export const appRouter = router({
               sparklineData: s.sparklineData || [],
             })),
             cryptoTrends,
-            etfFlowData: etfFlowDataForAI,
             currentRegime: report.regime,
             currentStatus: report.status,
             previousRegime: previousReport?.regime || null,

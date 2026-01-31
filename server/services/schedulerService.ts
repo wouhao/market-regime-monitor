@@ -20,7 +20,7 @@ import {
   getCryptoMetricsDaysAgo,
   updateReportAIAnalysis,
 } from "../db";
-import { runEtfFlowFetch, isEtfFlowEnabled, initEtfFlowData, getLatestEtfFlow } from "../etfFlowService";
+import { runEtfFlowFetch, isEtfFlowEnabled, initEtfFlowData } from "../etfFlowService";
 
 // 系统用户ID（用于定时任务生成的报告，使用owner的配置）
 const SYSTEM_USER_ID = 1;
@@ -144,30 +144,6 @@ async function generateScheduledReport(): Promise<void> {
         
         const cryptoTrends = calculateCryptoTrends(currentCrypto, toMetrics(d1), toMetrics(d7), toMetrics(d30));
         
-        // 获取ETF Flow数据用于AI分析
-        let etfFlowDataForAI = null;
-        try {
-          const etfEnabled = await isEtfFlowEnabled();
-          if (etfEnabled) {
-            const etfData = await getLatestEtfFlow();
-            if (etfData) {
-              etfFlowDataForAI = {
-                date: etfData.date,
-                total: etfData.total,
-                ibit: etfData.ibit,
-                fbtc: etfData.fbtc,
-                gbtc: etfData.gbtc,
-                totalExGbtc: etfData.totalExGbtc,
-                rolling5d: etfData.rolling5d,
-                rolling20d: etfData.rolling20d,
-                alert: etfData.alert,
-              };
-            }
-          }
-        } catch (err) {
-          console.warn("[Scheduler] Failed to get ETF flow data for AI:", err);
-        }
-        
         // 构建AI分析输入
         const aiInput = {
           snapshots: reportData.snapshots.map(s => ({
@@ -182,7 +158,6 @@ async function generateScheduledReport(): Promise<void> {
             sparklineData: s.sparklineData,
           })),
           cryptoTrends,
-          etfFlowData: etfFlowDataForAI,
           currentRegime: reportData.regime.regime,
           currentStatus: reportData.regime.status,
           previousRegime: lastReport?.regime || null,

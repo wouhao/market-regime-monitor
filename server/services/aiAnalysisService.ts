@@ -15,23 +15,9 @@
 import { invokeLLM } from "../_core/llm";
 import { MarketIndicator, CryptoTrendData } from "./marketDataService";
 
-// ETF Flow数据类型（用于AI分析输入）
-export interface EtfFlowDataForAI {
-  date: string;
-  total: number | null;
-  ibit: number | null;
-  fbtc: number | null;
-  gbtc: number | null;
-  totalExGbtc: number | null;
-  rolling5d: number | null;
-  rolling20d: number | null;
-  alert?: string;
-}
-
 export interface AIAnalysisInput {
   snapshots: MarketIndicator[];
   cryptoTrends: CryptoTrendData | null;
-  etfFlowData: EtfFlowDataForAI | null;  // 新增: ETF Flow数据
   currentRegime: string;
   currentStatus: string;
   previousRegime: string | null;
@@ -107,27 +93,6 @@ function buildSystemPrompt(): string {
 - Liquidations：清算强度（踩踏是否发生）
 - Stablecoin supply：加密领域的“边际美元供给”
 
-### BTC Spot ETF Flow（机构资金流向）
-- **数据来源**：Farside Investors，跟踪美国上市BTC现货ETF的每日净流入/流出
-- **核心指标**：
-  - Total Net Flow：全部ETF的当日净流入（正=流入，负=流出）
-  - Total ex GBTC：排除GBTC的净流入（更能反映真实机构需求，GBTC常有套利噪音）
-  - IBIT (BlackRock)：最大的BTC ETF，机构资金风向标
-  - FBTC (Fidelity)：第二大ETF，机构需求验证
-- **滚动平均**：
-  - 5D Rolling：短期动量，反映近期资金流向趋势
-  - 20D Rolling：中期基准，反映机构配置意愿
-- **分析要点**：
-  - 单日大额流入(>500m)或流出(<-500m)是重要信号
-  - 5D < 20D表示动量衰减，5D > 20D表示动量增强
-  - GBTC占比过高(>50%)时可能是噪音而非真实需求
-  - ETF流入与BTC价格走势背离时值得关注
-- **与风险偏好的关系**：
-  - ETF持续流入 + BTC价格上涨 → 机构风险偏好上升
-  - ETF流出 + BTC价格下跌 → 机构风险偏好下降
-  - ETF流入但BTC价格下跌 → 机构逐步建仓，可能是底部信号
-  - ETF流出但BTC价格上涨 → 机构减仓，可能是顶部信号
-
 ## 组合模板
 
 ### 三核心组合
@@ -184,7 +149,7 @@ function buildSystemPrompt(): string {
  * 构建用户消息（包含市场数据）
  */
 function buildUserMessage(input: AIAnalysisInput): string {
-  const { snapshots, cryptoTrends, etfFlowData, currentRegime, currentStatus, previousRegime, triggeredRules, switches } = input;
+  const { snapshots, cryptoTrends, currentRegime, currentStatus, previousRegime, triggeredRules, switches } = input;
   
   // 提取关键指标数据
   const getSnapshot = (indicator: string) => snapshots.find(s => s.indicator === indicator);
@@ -238,17 +203,6 @@ function buildUserMessage(input: AIAnalysisInput): string {
 | Liquidations 24h | ${liq?.latestValue !== null && liq?.latestValue !== undefined ? `$${(liq.latestValue / 1e6).toFixed(2)}M` : "missing"} | ${cryptoTrends?.liq1d !== null && cryptoTrends?.liq1d !== undefined ? formatChange(cryptoTrends.liq1d) : "missing"} | ${cryptoTrends?.liq7d !== null && cryptoTrends?.liq7d !== undefined ? formatChange(cryptoTrends.liq7d) : "missing"} | ${cryptoTrends?.liq30d !== null && cryptoTrends?.liq30d !== undefined ? formatChange(cryptoTrends.liq30d) : "missing"} |
 | Stablecoin Supply | ${stable?.latestValue !== null && stable?.latestValue !== undefined ? `$${(stable.latestValue / 1e9).toFixed(2)}B` : "missing"} | ${cryptoTrends?.stable1d !== null && cryptoTrends?.stable1d !== undefined ? formatChange(cryptoTrends.stable1d) : "missing"} | ${cryptoTrends?.stable7d !== null && cryptoTrends?.stable7d !== undefined ? formatChange(cryptoTrends.stable7d) : "missing"} | ${cryptoTrends?.stable30d !== null && cryptoTrends?.stable30d !== undefined ? formatChange(cryptoTrends.stable30d) : "missing"} |
 
-### BTC Spot ETF Flow（机构资金流向）
-${etfFlowData ? `- **数据日期**: ${etfFlowData.date}
-- **Total Net Flow**: ${etfFlowData.total !== null ? `${etfFlowData.total >= 0 ? '+' : ''}${etfFlowData.total.toFixed(1)}m` : 'missing'}
-- **Total ex GBTC**: ${etfFlowData.totalExGbtc !== null ? `${etfFlowData.totalExGbtc >= 0 ? '+' : ''}${etfFlowData.totalExGbtc.toFixed(1)}m` : 'missing'}
-- **IBIT (BlackRock)**: ${etfFlowData.ibit !== null ? `${etfFlowData.ibit >= 0 ? '+' : ''}${etfFlowData.ibit.toFixed(1)}m` : 'missing'}
-- **FBTC (Fidelity)**: ${etfFlowData.fbtc !== null ? `${etfFlowData.fbtc >= 0 ? '+' : ''}${etfFlowData.fbtc.toFixed(1)}m` : 'missing'}
-- **GBTC (Grayscale)**: ${etfFlowData.gbtc !== null ? `${etfFlowData.gbtc >= 0 ? '+' : ''}${etfFlowData.gbtc.toFixed(1)}m` : 'missing'}
-- **5D Rolling Avg**: ${etfFlowData.rolling5d !== null ? `${etfFlowData.rolling5d >= 0 ? '+' : ''}${etfFlowData.rolling5d.toFixed(1)}m` : 'missing'}
-- **20D Rolling Avg**: ${etfFlowData.rolling20d !== null ? `${etfFlowData.rolling20d >= 0 ? '+' : ''}${etfFlowData.rolling20d.toFixed(1)}m` : 'missing'}
-${etfFlowData.alert ? `- **提示**: ${etfFlowData.alert}` : ''}` : 'ETF Flow数据未启用或不可用'}
-
 ## 当前情景判定
 - **当前情景**: ${currentRegime.toUpperCase()} (${currentStatus})
 - **上次情景**: ${previousRegime ? previousRegime.toUpperCase() : "无"}
@@ -281,16 +235,10 @@ ${etfFlowData.alert ? `- **提示**: ${etfFlowData.alert}` : ''}` : 'ETF Flow数
    - Put关注波动率环境（VIX）和建仓机会
    - Spot关注整体风险偏好环境和买入节奏
 
-5. **风险提示**：若触发阈值（VIX>20、HY OAS +25bp、real yield +15bp、BTC 7D<-5%、ETF单日流出>500m），要点名，每个风险一行，使用"-"开头
+5. **风险提示**：若触发阈值（VIX>20、HY OAS +25bp、real yield +15bp、BTC 7D<-5%），要点名，每个风险一行，使用"-"开头
 
-6. **ETF Flow分析**（如果有数据）：
-   - 评估机构资金流向对风险偏好的影响
-   - 分析ETF流入/流出与BTC价格走势的关系
-   - 注意5D与20D Rolling的动量变化
-   - 如果GBTC占比过高，指出可能是噪音
-
-7. **必须包含**：
-   "市场信号来自BTC/宏观/信用/ETF Flow，用于判定风险偏好；执行对象是美股（GOOG/META/MSFT等）的买入节奏与建仓工具。"
+6. **必须包含**：
+   "市场信号来自BTC/宏观/信用，用于判定风险偏好；执行对象是美股（GOOG/META/MSFT等）的买入节奏与建仓工具。"
 
 **输出格式要求**：
 - 不要使用Markdown表格

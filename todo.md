@@ -196,3 +196,12 @@
 - [x] 让AI解读结合机构资金流向给出判断
 - [x] 在routers.ts和schedulerService.ts中添加ETF Flow数据获取
 - [x] 测试验证AI分析功能 (52个测试全部通过)
+
+## 回退 (2026-01-31 - 移除AI分析中的ETF Flow集成)
+- [x] 从AIAnalysisInput接口中移除etfFlowData字段
+- [x] 从buildUserMessage中移除ETF Flow数据展示
+- [x] 从系统提示词中移除ETF Flow分析指导
+- [x] 从routers.ts中移除ETF Flow数据获取
+- [x] 从schedulerService.ts中移除ETF Flow数据获取
+- [x] 更新测试文件移除etfFlowData
+- [x] 测试验证回退后功能正常 (49个测试全部通过)
