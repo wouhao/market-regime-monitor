@@ -58,6 +58,10 @@ import {
   EtfFlowManifest,
   EtfFlowChartData,
 } from "./etfFlowService";
+import {
+  backfillCryptoMetrics,
+  getBackfillStatus,
+} from "./services/coinglassBackfillService";
 
 export const appRouter = router({
   system: systemRouter,
@@ -673,6 +677,53 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await setEtfFlowEnabled(input.enabled);
         return { success: true, message: `ETF Flow module ${input.enabled ? "enabled" : "disabled"}` };
+      }),
+  }),
+
+  // 加密指标历史数据回填 API
+  cryptoBackfill: router({
+    // 获取回填状态
+    getStatus: protectedProcedure
+      .input(z.object({ days: z.number().optional().default(30) }))
+      .query(async ({ input }) => {
+        console.log(`[API] Getting crypto backfill status for ${input.days} days...`);
+        const status = await getBackfillStatus(input.days);
+        return { success: true, data: status };
+      }),
+
+    // 执行回填
+    run: protectedProcedure
+      .input(z.object({
+        days: z.number().optional().default(30),
+        overwrite: z.boolean().optional().default(false),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        console.log(`[API] Starting crypto backfill for ${input.days} days, overwrite: ${input.overwrite}`);
+        
+        // 获取CoinGlass API Key
+        const coinglassConfig = await getApiConfigByKey(ctx.user.id, "COINGLASS_API_KEY");
+        
+        if (!coinglassConfig?.configValue) {
+          return {
+            success: false,
+            message: "CoinGlass API Key not configured. Please add it in API Settings.",
+            data: null,
+          };
+        }
+        
+        const result = await backfillCryptoMetrics(
+          coinglassConfig.configValue,
+          input.days,
+          input.overwrite
+        );
+        
+        return {
+          success: result.success,
+          message: result.success 
+            ? `Backfill completed: ${result.daysProcessed} days processed, ${result.daysSkipped} skipped`
+            : `Backfill failed: ${result.errors.join(", ")}`,
+          data: result,
+        };
       }),
   }),
 

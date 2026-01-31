@@ -1,0 +1,37 @@
+{
+  "query": "SELECT * FROM api_configs;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute SELECT * FROM api_configs;",
+  "rows": [
+    {
+      "id": "1",
+      "userId": "1",
+      "configKey": "FRED_API_KEY",
+      "configValue": "7b712ced2ca837c931e2b8d9c1602f10",
+      "isActive": "1",
+      "createdAt": "2026-01-30 12:15:04",
+      "updatedAt": "2026-01-30 12:15:04"
+    },
+    {
+      "id": "30001",
+      "userId": "1",
+      "configKey": "COINGLASS_API_KEY",
+      "configValue": "34231f7d4090470f8c40c9b23c70bd65",
+      "isActive": "1",
+      "createdAt": "2026-01-30 12:25:50",
+      "updatedAt": "2026-01-30 12:25:50"
+    },
+    {
+      "id": "30002",
+      "userId": "1",
+      "configKey": "COINALYZE_API_KEY",
+      "configValue": "35b92e77-43f5-4ef5-9558-e559ba68a926",
+      "isActive": "1",
+      "createdAt": "2026-01-30 14:26:15",
+      "updatedAt": "2026-01-30 14:26:15"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\tconfigKey\tconfigValue\tisActive\tcreatedAt\tupdatedAt\n1\t1\tFRED_API_KEY\t7b712ced2ca837c931e2b8d9c1602f10\t1\t2026-01-30 12:15:04\t2026-01-30 12:15:04\n30001\t1\tCOINGLASS_API_KEY\t34231f7d4090470f8c40c9b23c70bd65\t1\t2026-01-30 12:25:50\t2026-01-30 12:25:50\n30002\t1\tCOINALYZE_API_KEY\t35b92e77-43f5-4ef5-9558-e559ba68a926\t1\t2026-01-30 14:26:15\t2026-01-30 14:26:15\n",
+  "stderr": "",
+  "execution_time_ms": 1617
+}

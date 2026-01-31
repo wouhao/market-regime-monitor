@@ -225,3 +225,13 @@
 - [x] AI分析输出新增BTC市场分析独立段落（与执行开关隔离）
 - [x] 工程约束：Fail-closed + 禁止填0 + 禁止交易建议 + 与执行开关隔离
 - [x] 单元测试覆盖 (72个测试全部通过)
+
+## 新功能 (2026-02-01 - CoinGlass历史数据回填)
+- [x] 实现CoinGlass历史数据回填服务
+  - [x] OI Aggregated History回填（30天）
+  - [x] OI-Weighted Funding Rate回填（30天）
+  - [x] Liquidation History回填（30天，多交易所聚合）
+- [x] 添加回填API端点（cryptoBackfill.getStatus, cryptoBackfill.run）
+- [x] 执行历史数据回填（28条插入，2条跳过）
+- [x] 验证crypto_metrics_daily表数据完整性（30天全部有OI/Funding/Liq数据）
+- [x] 测试BTC Analysis模块正常显示（OI 7D/Funding 7D avg/Liq 7D已显示）
