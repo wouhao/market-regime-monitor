@@ -51,9 +51,9 @@ const INDICATORS_CONFIG = [
   { indicator: "DGS10", displayName: "10Y Treasury", source: "fred" },
   { indicator: "DFII10", displayName: "10Y Real Yield", source: "fred" },
   { indicator: "BAMLH0A0HYM2", displayName: "HY OAS", source: "fred" },
-  // 4个加密指标 (使用Binance免费API + DefiLlama)
+  // 4个加密指标 (Binance Funding + CoinGlass OI + Coinalyze Liq + DefiLlama Stablecoin)
   { indicator: "crypto_funding", displayName: "BTC Funding Rate", source: "binance" },
-  { indicator: "crypto_oi", displayName: "BTC Open Interest", source: "binance" },
+  { indicator: "crypto_oi", displayName: "BTC Open Interest", source: "coinglass" },
   { indicator: "crypto_liquidations", displayName: "BTC Liquidations (24h)", source: "coinalyze" },
   { indicator: "stablecoin", displayName: "Stablecoin Supply (USDT+USDC)", source: "defillama" },
 ];
@@ -185,6 +185,41 @@ async function fetchFromBinance(dataType: string): Promise<number | null> {
   } catch (error: unknown) {
     const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
     console.error(`[Binance] Failed to fetch ${dataType}:`, axiosError.response?.status || axiosError.message);
+    return null;
+  }
+}
+
+/**
+ * 从CoinGlass获取全市场聚合OI
+ */
+async function fetchCoinGlassOI(apiKey: string): Promise<number | null> {
+  try {
+    // 使用aggregated-history端点获取最新的聚合OI数据
+    const endTime = Date.now();
+    const startTime = endTime - 2 * 24 * 60 * 60 * 1000; // 最近2天
+    const url = `https://open-api-v4.coinglass.com/api/futures/open-interest/aggregated-history?symbol=BTC&interval=1d&start_time=${startTime}&end_time=${endTime}`;
+    
+    console.log(`[CoinGlass] Fetching aggregated open interest...`);
+    
+    const response = await axios.get(url, {
+      headers: {
+        'accept': 'application/json',
+        'CG-API-KEY': apiKey
+      },
+      timeout: 10000
+    });
+    
+    if (response.data?.code === "0" && response.data?.data?.length > 0) {
+      const latestData = response.data.data[response.data.data.length - 1];
+      const oiUsd = typeof latestData.close === 'string' ? parseFloat(latestData.close) : latestData.close;
+      console.log(`[CoinGlass] Aggregated Open Interest: $${(oiUsd / 1e9).toFixed(2)}B`);
+      return isNaN(oiUsd) ? null : oiUsd;
+    }
+    
+    return null;
+  } catch (error: unknown) {
+    const axiosError = error as { response?: { status?: number; data?: unknown }; message?: string };
+    console.error(`[CoinGlass] Failed to fetch OI:`, axiosError.response?.status || axiosError.message);
     return null;
   }
 }
@@ -600,7 +635,11 @@ function calculateMA20(prices: number[]): number | null {
 /**
  * 获取所有市场数据
  */
-export async function fetchAllMarketData(fredApiKey: string, coinalyzeApiKey?: string): Promise<MarketIndicator[]> {
+export async function fetchAllMarketData(fredApiKey: string, coinalyzeApiKey?: string, coinglassApiKey?: string): Promise<MarketIndicator[]> {
+  // 存储CoinGlass API Key到全局变量供后续使用
+  if (coinglassApiKey) {
+    (global as Record<string, unknown>).__coinglassApiKey = coinglassApiKey;
+  }
   console.log("[MarketData] Starting data fetch...");
   const results: MarketIndicator[] = [];
   
@@ -628,6 +667,14 @@ export async function fetchAllMarketData(fredApiKey: string, coinalyzeApiKey?: s
         }
       } else if (config.source === "defillama") {
         latest = await fetchDefiLlamaData();
+      } else if (config.source === "coinglass") {
+        // 使用CoinGlass API获取全市场聚合OI
+        const coinglassApiKey = (global as Record<string, unknown>).__coinglassApiKey as string | undefined;
+        if (coinglassApiKey) {
+          latest = await fetchCoinGlassOI(coinglassApiKey);
+        } else {
+          console.log(`[MarketData] CoinGlass API Key not configured, skipping OI`);
+        }
       } else if (config.source === "coinalyze") {
         // 使用Coinalyze REST API获取多交易所聚合的清算数据
         if (coinalyzeApiKey) {
@@ -938,12 +985,13 @@ export function generateReportContent(
 export async function generateMarketReport(
   fredApiKey: string,
   coinalyzeApiKey?: string,
+  coinglassApiKey?: string,
   previousRegime?: string
 ): Promise<MarketReportData> {
   console.log("[MarketReport] Starting report generation...");
   
-  // 1. 获取所有市场数据 (使用Coinalyze获取多交易所聚合清算数据)
-  const snapshots = await fetchAllMarketData(fredApiKey, coinalyzeApiKey);
+  // 1. 获取所有市场数据 (CoinGlass OI + Coinalyze Liq + Binance Funding + DefiLlama Stablecoin)
+  const snapshots = await fetchAllMarketData(fredApiKey, coinalyzeApiKey, coinglassApiKey);
   
   // 2. 判定市场情景
   const regime = classifyRegime(snapshots, previousRegime);

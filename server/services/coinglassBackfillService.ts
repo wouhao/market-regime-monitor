@@ -117,8 +117,9 @@ async function fetchFundingHistory(apiKey: string, startTime: number, endTime: n
         
         const closeValue = typeof point.close === 'string' ? parseFloat(point.close) : point.close;
         if (!isNaN(closeValue)) {
-          // Funding rate已经是百分比形式，需要乘以100转换为显示格式
-          result.set(dateStr, closeValue * 100);
+          // CoinGlass返回的值已经是百分比形式（如 0.00589700 表示 0.5897%）
+          // 不需要再乘100，直接存储原始值
+          result.set(dateStr, closeValue);
         }
       }
     }

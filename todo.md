@@ -235,3 +235,15 @@
 - [x] 执行历史数据回填（28条插入，2条跳过）
 - [x] 验证crypto_metrics_daily表数据完整性（30天全部有OI/Funding/Liq数据）
 - [x] 测试BTC Analysis模块正常显示（OI 7D/Funding 7D avg/Liq 7D已显示）
+
+## Bug修复 (2026-02-01 - 数据源问题)
+- [x] OI数据源切换到CoinGlass全市场聚合
+  - [x] 修改marketDataService.ts实时OI获取逻辑
+  - [x] 修复1/30、1/31异常OI数据
+- [x] Funding Rate回填逻辑修复
+  - [x] 移除coinglassBackfillService.ts中的×100处理
+  - [x] 重新回填历史Funding数据
+- [x] 添加DefiLlama历史稳定币数据回填
+  - [x] 实现DefiLlama历史数据获取
+  - [x] 回填30天Stablecoin数据
+  - [x] 补全stablecoin_7d和stablecoin_30d字段

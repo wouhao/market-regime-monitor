@@ -204,12 +204,17 @@ export const appRouter = router({
         const coinalyzeApiKey = coinalyzeConfig?.configValue || undefined;
         console.log(`[API] Coinalyze API Key: ${coinalyzeApiKey ? 'Configured' : 'Not configured'}`);
         
+        // 获取CoinGlass API Key用于全市场聚合OI
+        const coinglassConfig = await getApiConfigByKey(ctx.user.id, "COINGLASS_API_KEY");
+        const coinglassApiKey = coinglassConfig?.configValue || undefined;
+        console.log(`[API] CoinGlass API Key: ${coinglassApiKey ? 'Configured' : 'Not configured'}`);
+        
         // 获取上一次的情景用于确认状态判定
         const lastReport = await getLatestReport();
         const previousRegime = lastReport?.regime;
         
-        // 生成报告 (使用Coinalyze获取多交易所聚合清算数据)
-        const reportData = await generateMarketReport(fredApiKey, coinalyzeApiKey, previousRegime);
+        // 生成报告 (CoinGlass OI + Coinalyze Liq + Binance Funding + DefiLlama Stablecoin)
+        const reportData = await generateMarketReport(fredApiKey, coinalyzeApiKey, coinglassApiKey, previousRegime);
         
         // 获取北京时间日期
         const now = new Date();
