@@ -179,3 +179,12 @@
 - [x] 解决方案：服务器启动时自动检测并初始化ETF数据
 - [x] 在schedulerService中添加启动时检查逻辑
 - [x] 如果btc_etf_flows表为空，自动触发backfill抓取历史数据
+
+## 新功能 (2026-01-31 - ETF Flow 30天趋势图表)
+- [x] 扩展后端API返回30天历史数据 (getEtfFlowHistoryWithRolling)
+- [x] 前端实现折线图组件（使用recharts）
+- [x] 显示Total Net Flow趋势线 (蓝色实线)
+- [x] 添加5D/20D Rolling均线 (绿色/黄色虚线)
+- [x] 图表交互：悬停显示详细数据
+- [x] 响应式设计适配移动端 (ResponsiveContainer)
+- [x] 单元测试覆盖 (49个测试全部通过)

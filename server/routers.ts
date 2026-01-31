@@ -39,12 +39,14 @@ import {
   saveEtfFlowData,
   getLatestEtfFlow,
   getEtfFlowHistory,
+  getEtfFlowHistoryWithRolling,
   getEtfFlowStats,
   isEtfFlowEnabled,
   setEtfFlowEnabled,
   runEtfFlowFetch,
   EtfFlowWithRolling,
   EtfFlowManifest,
+  EtfFlowChartData,
 } from "./etfFlowService";
 
 export const appRouter = router({
@@ -541,6 +543,25 @@ export const appRouter = router({
         }
         
         const data = await getEtfFlowHistory(input.limit);
+        return { success: true, data };
+      }),
+
+    // 获取图表数据（带滚动平均）
+    getChartData: publicProcedure
+      .input(z.object({ limit: z.number().optional().default(30) }))
+      .query(async ({ input }) => {
+        console.log(`[API] Getting ETF flow chart data, limit: ${input.limit}`);
+        
+        const enabled = await isEtfFlowEnabled();
+        if (!enabled) {
+          return {
+            success: false,
+            message: "ETF Flow module is disabled",
+            data: [],
+          };
+        }
+        
+        const data = await getEtfFlowHistoryWithRolling(input.limit);
         return { success: true, data };
       }),
 

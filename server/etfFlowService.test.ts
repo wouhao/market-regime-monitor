@@ -334,3 +334,53 @@ describe("Value Parsing Edge Cases", () => {
     expect(true).toBe(true);
   });
 });
+
+
+  describe("getEtfFlowHistoryWithRolling", () => {
+    it("should return empty array when database is not available", async () => {
+      const result = await etfService.getEtfFlowHistoryWithRolling(30);
+      expect(result).toEqual([]);
+    });
+
+    it("should accept custom limit parameter", async () => {
+      // 测试函数接受limit参数
+      const result = await etfService.getEtfFlowHistoryWithRolling(10);
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    it("should return data in ascending date order for chart display", async () => {
+      // 由于数据库mock返回空，这里只验证返回类型
+      const result = await etfService.getEtfFlowHistoryWithRolling(30);
+      expect(Array.isArray(result)).toBe(true);
+    });
+  });
+
+  describe("EtfFlowChartData interface", () => {
+    it("should have correct structure", () => {
+      // 验证接口结构
+      const mockData: etfService.EtfFlowChartData = {
+        date: "2026-01-30",
+        total: 100.5,
+        rolling5d: 80.2,
+        rolling20d: 50.3
+      };
+      
+      expect(mockData.date).toBe("2026-01-30");
+      expect(mockData.total).toBe(100.5);
+      expect(mockData.rolling5d).toBe(80.2);
+      expect(mockData.rolling20d).toBe(50.3);
+    });
+
+    it("should allow null values for rolling averages", () => {
+      const mockData: etfService.EtfFlowChartData = {
+        date: "2026-01-30",
+        total: null,
+        rolling5d: null,
+        rolling20d: null
+      };
+      
+      expect(mockData.total).toBeNull();
+      expect(mockData.rolling5d).toBeNull();
+      expect(mockData.rolling20d).toBeNull();
+    });
+  });

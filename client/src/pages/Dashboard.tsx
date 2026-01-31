@@ -29,6 +29,17 @@ import {
 import { toast } from "sonner";
 import { useState } from "react";
 import { Streamdown } from "streamdown";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+  Legend
+} from "recharts";
 
 // 清理Markdown格式标记和冗余前缀
 function cleanMarkdown(text: string): string {
@@ -165,6 +176,7 @@ export default function Dashboard() {
   
   const { data: latestData, isLoading, refetch } = trpc.market.getLatest.useQuery();
   const { data: etfFlowData, isLoading: isEtfLoading, refetch: refetchEtf } = trpc.etfFlow.getLatest.useQuery();
+  const { data: etfChartData } = trpc.etfFlow.getChartData.useQuery({ limit: 30 });
   
   const etfRefreshMutation = trpc.etfFlow.refresh.useMutation({
     onSuccess: (result) => {
@@ -652,6 +664,7 @@ export default function Dashboard() {
           {!isEtfLoading && etfFlowData?.success && etfFlowData.data && (
             <EtfFlowCard 
               data={etfFlowData.data} 
+              chartData={etfChartData?.data || []}
               onRefresh={handleEtfRefresh}
               isRefreshing={isEtfRefreshing}
             />
@@ -827,13 +840,23 @@ interface EtfFlowData {
   alert?: string;
 }
 
+// ETF Flow 图表数据类型
+interface EtfFlowChartData {
+  date: string;
+  total: number | null;
+  rolling5d: number | null;
+  rolling20d: number | null;
+}
+
 // ETF Flow 卡片组件
 function EtfFlowCard({ 
   data, 
+  chartData,
   onRefresh, 
   isRefreshing 
 }: { 
   data: EtfFlowData; 
+  chartData: EtfFlowChartData[];
   onRefresh: () => void;
   isRefreshing: boolean;
 }) {
@@ -981,6 +1004,95 @@ function EtfFlowCard({
             <div className="flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
               <div className="text-sm text-yellow-400">{data.alert}</div>
+            </div>
+          </div>
+        )}
+        
+        {/* 30天趋势图表 */}
+        {chartData.length > 0 && (
+          <div className="pt-4 border-t border-muted/30">
+            <div className="text-xs text-muted-foreground mb-3 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              30天资金流向趋势
+            </div>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={chartData}
+                  margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" opacity={0.3} />
+                  <XAxis 
+                    dataKey="date" 
+                    tick={{ fontSize: 10, fill: '#888' }}
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return `${date.getMonth() + 1}/${date.getDate()}`;
+                    }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 10, fill: '#888' }}
+                    tickFormatter={(value) => `${value > 0 ? '+' : ''}${value.toFixed(0)}`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1a1a2e',
+                      border: '1px solid #333',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }}
+                    labelFormatter={(value) => `日期: ${value}`}
+                    formatter={(value, name) => {
+                      if (value === null || value === undefined) return ['--', name];
+                      const numValue = Number(value);
+                      const label = name === 'total' ? 'Total Net Flow' : 
+                                   name === 'rolling5d' ? '5D Rolling' : '20D Rolling';
+                      return [`${numValue > 0 ? '+' : ''}${numValue.toFixed(1)} US$m`, label];
+                    }}
+                  />
+                  <ReferenceLine y={0} stroke="#666" strokeDasharray="3 3" />
+                  <Legend 
+                    verticalAlign="top" 
+                    height={36}
+                    formatter={(value) => {
+                      const labels: Record<string, string> = {
+                        total: 'Total Net Flow',
+                        rolling5d: '5D Rolling',
+                        rolling20d: '20D Rolling'
+                      };
+                      return <span style={{ fontSize: '11px', color: '#888' }}>{labels[value] || value}</span>;
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="total" 
+                    stroke="#3b82f6" 
+                    strokeWidth={2}
+                    dot={{ r: 2, fill: '#3b82f6' }}
+                    activeDot={{ r: 4, fill: '#3b82f6' }}
+                    connectNulls
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="rolling5d" 
+                    stroke="#22c55e" 
+                    strokeWidth={1.5}
+                    strokeDasharray="5 5"
+                    dot={false}
+                    connectNulls
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="rolling20d" 
+                    stroke="#f59e0b" 
+                    strokeWidth={1.5}
+                    strokeDasharray="3 3"
+                    dot={false}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
         )}

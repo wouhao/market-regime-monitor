@@ -595,6 +595,71 @@ export async function getEtfFlowHistory(
 }
 
 /**
+ * 获取ETF Flow历史数据（带滚动平均计算，用于图表展示）
+ */
+export interface EtfFlowChartData {
+  date: string;
+  total: number | null;
+  rolling5d: number | null;
+  rolling20d: number | null;
+}
+
+export async function getEtfFlowHistoryWithRolling(
+  limit: number = 30
+): Promise<EtfFlowChartData[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  // 获取足够的数据用于计算20日滚动平均
+  const extraDays = 20;
+  const records = await db
+    .select()
+    .from(btcEtfFlows)
+    .orderBy(desc(btcEtfFlows.date))
+    .limit(limit + extraDays);
+  
+  if (records.length === 0) return [];
+  
+  // 计算每一天的滚动平均
+  const result: EtfFlowChartData[] = [];
+  
+  for (let i = 0; i < Math.min(limit, records.length); i++) {
+    const record = records[i];
+    const total = record.total !== null ? parseFloat(record.total) : null;
+    
+    // 计算5D滚动平均
+    let rolling5d: number | null = null;
+    if (i + 5 <= records.length) {
+      const window5 = records.slice(i, i + 5);
+      const values5 = window5.map(r => r.total !== null ? parseFloat(r.total) : null);
+      if (values5.every(v => v !== null)) {
+        rolling5d = (values5 as number[]).reduce((a, b) => a + b, 0) / 5;
+      }
+    }
+    
+    // 计算20D滚动平均
+    let rolling20d: number | null = null;
+    if (i + 20 <= records.length) {
+      const window20 = records.slice(i, i + 20);
+      const values20 = window20.map(r => r.total !== null ? parseFloat(r.total) : null);
+      if (values20.every(v => v !== null)) {
+        rolling20d = (values20 as number[]).reduce((a, b) => a + b, 0) / 20;
+      }
+    }
+    
+    result.push({
+      date: record.date,
+      total,
+      rolling5d,
+      rolling20d
+    });
+  }
+  
+  // 返回按日期升序排列（图表从左到右显示）
+  return result.reverse();
+}
+
+/**
  * 判断是否为交易日
  * 简单实现：排除周六日
  */
