@@ -34,6 +34,18 @@ import {
   getReportAIAnalysis,
   AIAnalysisData,
 } from "./db";
+import {
+  fetchFarsideData,
+  saveEtfFlowData,
+  getLatestEtfFlow,
+  getEtfFlowHistory,
+  getEtfFlowStats,
+  isEtfFlowEnabled,
+  setEtfFlowEnabled,
+  runEtfFlowFetch,
+  EtfFlowWithRolling,
+  EtfFlowManifest,
+} from "./etfFlowService";
 
 export const appRouter = router({
   system: systemRouter,
@@ -479,6 +491,128 @@ export const appRouter = router({
         } catch (error) {
           return { success: false, message: "测试失败，请检查网络连接" };
         }
+      }),
+  }),
+
+  // BTC ETF Flow API
+  etfFlow: router({
+    // 获取最新ETF Flow数据（带滚动计算和提示）
+    getLatest: publicProcedure.query(async () => {
+      console.log("[API] Getting latest ETF flow data...");
+      
+      const enabled = await isEtfFlowEnabled();
+      if (!enabled) {
+        return {
+          success: false,
+          message: "ETF Flow module is disabled",
+          data: null,
+        };
+      }
+      
+      const data = await getLatestEtfFlow();
+      
+      if (!data) {
+        return {
+          success: false,
+          message: "No ETF flow data available",
+          data: null,
+        };
+      }
+      
+      return {
+        success: true,
+        data,
+      };
+    }),
+
+    // 获取历史ETF Flow数据
+    getHistory: publicProcedure
+      .input(z.object({ limit: z.number().optional().default(30) }))
+      .query(async ({ input }) => {
+        console.log(`[API] Getting ETF flow history, limit: ${input.limit}`);
+        
+        const enabled = await isEtfFlowEnabled();
+        if (!enabled) {
+          return {
+            success: false,
+            message: "ETF Flow module is disabled",
+            data: [],
+          };
+        }
+        
+        const data = await getEtfFlowHistory(input.limit);
+        return { success: true, data };
+      }),
+
+    // 获取ETF Flow统计信息
+    getStats: publicProcedure.query(async () => {
+      const enabled = await isEtfFlowEnabled();
+      const stats = await getEtfFlowStats();
+      
+      return {
+        success: true,
+        data: {
+          ...stats,
+          enabled,
+        },
+      };
+    }),
+
+    // 手动刷新ETF Flow数据
+    refresh: protectedProcedure.mutation(async () => {
+      console.log("[API] Refreshing ETF flow data...");
+      
+      const result = await runEtfFlowFetch();
+      
+      return {
+        success: result.success,
+        message: result.message,
+        manifest: result.manifest,
+      };
+    }),
+
+    // 初始历史数据回填
+    backfill: protectedProcedure.mutation(async () => {
+      console.log("[API] Starting ETF flow backfill...");
+      
+      try {
+        const { data, manifest } = await fetchFarsideData();
+        
+        if (manifest.parseStatus === "failed") {
+          return {
+            success: false,
+            message: manifest.missingReason || "Failed to fetch data",
+            manifest,
+          };
+        }
+        
+        const { inserted, updated } = await saveEtfFlowData(data, manifest);
+        
+        return {
+          success: true,
+          message: `Backfill complete: ${data.length} records processed, ${inserted} inserted, ${updated} updated`,
+          manifest,
+        };
+      } catch (error) {
+        console.error("[API] Backfill error:", error);
+        return {
+          success: false,
+          message: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    }),
+
+    // 获取/设置ETF Flow模块启用状态
+    getEnabled: publicProcedure.query(async () => {
+      const enabled = await isEtfFlowEnabled();
+      return { success: true, enabled };
+    }),
+
+    setEnabled: protectedProcedure
+      .input(z.object({ enabled: z.boolean() }))
+      .mutation(async ({ input }) => {
+        await setEtfFlowEnabled(input.enabled);
+        return { success: true, message: `ETF Flow module ${input.enabled ? "enabled" : "disabled"}` };
       }),
   }),
 

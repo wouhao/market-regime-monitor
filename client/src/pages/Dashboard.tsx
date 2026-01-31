@@ -20,7 +20,11 @@ import {
   ExternalLink,
   Brain,
   Sparkles,
-  AlertOctagon
+  AlertOctagon,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  Info
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -148,6 +152,7 @@ const dataSourceInfo: Record<string, { name: string; source: string; url: string
 export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isEtfRefreshing, setIsEtfRefreshing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<{
     conclusion: string;
     evidenceChain: string[];
@@ -159,6 +164,28 @@ export default function Dashboard() {
   } | null>(null);
   
   const { data: latestData, isLoading, refetch } = trpc.market.getLatest.useQuery();
+  const { data: etfFlowData, isLoading: isEtfLoading, refetch: refetchEtf } = trpc.etfFlow.getLatest.useQuery();
+  
+  const etfRefreshMutation = trpc.etfFlow.refresh.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success("ETF Flow数据已更新", { description: result.message });
+        refetchEtf();
+      } else {
+        toast.error("ETF Flow更新失败", { description: result.message });
+      }
+      setIsEtfRefreshing(false);
+    },
+    onError: (error) => {
+      toast.error("ETF Flow更新失败", { description: error.message });
+      setIsEtfRefreshing(false);
+    },
+  });
+  
+  const handleEtfRefresh = () => {
+    setIsEtfRefreshing(true);
+    etfRefreshMutation.mutate();
+  };
   const generateMutation = trpc.market.generate.useMutation({
     onSuccess: (result) => {
       if (result.success) {
@@ -621,7 +648,16 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* 执行开关 - 移到市场快照下方 */}
+          {/* BTC ETF Flow 卡片 - 市场快照下方 */}
+          {!isEtfLoading && etfFlowData?.success && etfFlowData.data && (
+            <EtfFlowCard 
+              data={etfFlowData.data} 
+              onRefresh={handleEtfRefresh}
+              isRefreshing={isEtfRefreshing}
+            />
+          )}
+
+          {/* 执行开关 - 移到ETF Flow下方 */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -771,5 +807,197 @@ function DashboardSkeleton() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+
+// ETF Flow 数据类型
+interface EtfFlowData {
+  date: string;
+  total: number | null;
+  ibit: number | null;
+  fbtc: number | null;
+  gbtc: number | null;
+  totalExGbtc: number | null;
+  totalExGbtcReason?: string;
+  rolling5d: number | null;
+  rolling5dReason?: string;
+  rolling20d: number | null;
+  rolling20dReason?: string;
+  alert?: string;
+}
+
+// ETF Flow 卡片组件
+function EtfFlowCard({ 
+  data, 
+  onRefresh, 
+  isRefreshing 
+}: { 
+  data: EtfFlowData; 
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
+  // 格式化金额显示
+  const formatAmount = (value: number | null) => {
+    if (value === null) return "--";
+    const absValue = Math.abs(value);
+    const sign = value >= 0 ? "+" : "";
+    return `${sign}${value.toFixed(1)}`;
+  };
+  
+  // 判断是否为周末/节假日数据
+  const today = new Date().toISOString().split("T")[0];
+  const isStaleData = data.date !== today;
+  
+  // 判断流入/流出状态
+  const getFlowStatus = (value: number | null) => {
+    if (value === null) return { label: "N/A", color: "text-muted-foreground", icon: null };
+    if (value > 0) return { label: "净流入", color: "text-green-400", icon: ArrowUpRight };
+    if (value < 0) return { label: "净流出", color: "text-red-400", icon: ArrowDownRight };
+    return { label: "持平", color: "text-muted-foreground", icon: null };
+  };
+  
+  const totalStatus = getFlowStatus(data.total);
+  
+  return (
+    <Card className="border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-blue-900/5">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-blue-400">
+            <Wallet className="h-5 w-5" />
+            BTC Spot ETF Flow
+            <Badge variant="outline" className="ml-2 text-xs font-normal">
+              参考指标
+            </Badge>
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {data.date}
+              {isStaleData && (
+                <span className="ml-1 text-yellow-500">(非交易日)</span>
+              )}
+            </span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="h-7 px-2"
+            >
+              <RefreshCw className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* 主要数据展示 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Total Net Flow */}
+          <div className="p-3 rounded-lg bg-muted/30 border border-muted/50">
+            <div className="text-xs text-muted-foreground mb-1">Total Net Flow</div>
+            <div className={`text-xl font-bold ${totalStatus.color} flex items-center gap-1`}>
+              {formatAmount(data.total)}
+              <span className="text-xs font-normal">US$m</span>
+              {totalStatus.icon && <totalStatus.icon className="h-4 w-4" />}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {totalStatus.label}
+            </div>
+          </div>
+          
+          {/* IBIT */}
+          <div className="p-3 rounded-lg bg-muted/30 border border-muted/50">
+            <div className="text-xs text-muted-foreground mb-1">IBIT (BlackRock)</div>
+            <div className={`text-xl font-bold ${data.ibit !== null && data.ibit >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {formatAmount(data.ibit)}
+              <span className="text-xs font-normal ml-1">US$m</span>
+            </div>
+          </div>
+          
+          {/* FBTC */}
+          <div className="p-3 rounded-lg bg-muted/30 border border-muted/50">
+            <div className="text-xs text-muted-foreground mb-1">FBTC (Fidelity)</div>
+            <div className={`text-xl font-bold ${data.fbtc !== null && data.fbtc >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {formatAmount(data.fbtc)}
+              <span className="text-xs font-normal ml-1">US$m</span>
+            </div>
+          </div>
+          
+          {/* GBTC */}
+          <div className="p-3 rounded-lg bg-muted/30 border border-muted/50">
+            <div className="text-xs text-muted-foreground mb-1">GBTC (Grayscale)</div>
+            <div className={`text-xl font-bold ${data.gbtc !== null && data.gbtc >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {formatAmount(data.gbtc)}
+              <span className="text-xs font-normal ml-1">US$m</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* 滚动平均和提示 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Total ex GBTC */}
+          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <div className="text-xs text-blue-400 mb-1 flex items-center gap-1">
+              Total ex GBTC
+              <Info className="h-3 w-3" />
+            </div>
+            <div className={`text-lg font-bold ${data.totalExGbtc !== null && data.totalExGbtc >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {data.totalExGbtc !== null ? formatAmount(data.totalExGbtc) : "--"}
+              <span className="text-xs font-normal ml-1">US$m</span>
+            </div>
+            {data.totalExGbtcReason && (
+              <div className="text-xs text-muted-foreground mt-1">{data.totalExGbtcReason}</div>
+            )}
+          </div>
+          
+          {/* 5D Rolling */}
+          <div className="p-3 rounded-lg bg-muted/30 border border-muted/50">
+            <div className="text-xs text-muted-foreground mb-1">5D Rolling Avg</div>
+            <div className={`text-lg font-bold ${data.rolling5d !== null && data.rolling5d >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {data.rolling5d !== null ? formatAmount(data.rolling5d) : "--"}
+              <span className="text-xs font-normal ml-1">US$m</span>
+            </div>
+            {data.rolling5dReason && (
+              <div className="text-xs text-yellow-500 mt-1">{data.rolling5dReason}</div>
+            )}
+          </div>
+          
+          {/* 20D Rolling */}
+          <div className="p-3 rounded-lg bg-muted/30 border border-muted/50">
+            <div className="text-xs text-muted-foreground mb-1">20D Rolling Avg</div>
+            <div className={`text-lg font-bold ${data.rolling20d !== null && data.rolling20d >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {data.rolling20d !== null ? formatAmount(data.rolling20d) : "--"}
+              <span className="text-xs font-normal ml-1">US$m</span>
+            </div>
+            {data.rolling20dReason && (
+              <div className="text-xs text-yellow-500 mt-1">{data.rolling20dReason}</div>
+            )}
+          </div>
+        </div>
+        
+        {/* 提示信息 */}
+        {data.alert && data.alert !== "No significant signals" && (
+          <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 shrink-0" />
+              <div className="text-sm text-yellow-400">{data.alert}</div>
+            </div>
+          </div>
+        )}
+        
+        {/* 数据来源说明 */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-muted/30">
+          <span>数据来源: Farside Investors</span>
+          <a 
+            href="https://farside.co.uk/bitcoin-etf-flow-all-data/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+          >
+            查看完整数据 <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

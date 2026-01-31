@@ -130,3 +130,27 @@ export const cryptoMetricsDaily = mysqlTable("crypto_metrics_daily", {
 
 export type CryptoMetricsDaily = typeof cryptoMetricsDaily.$inferSelect;
 export type InsertCryptoMetricsDaily = typeof cryptoMetricsDaily.$inferInsert;
+
+/**
+ * BTC ETF Flows - 存储BTC现货ETF日净流入数据
+ */
+export const btcEtfFlows = mysqlTable("btc_etf_flows", {
+  id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 10 }).notNull().unique(), // 交易日期 YYYY-MM-DD (as_of_date)
+  total: decimal("total", { precision: 12, scale: 2 }), // Total Net Flow (US$m)
+  ibit: decimal("ibit", { precision: 12, scale: 2 }), // IBIT
+  fbtc: decimal("fbtc", { precision: 12, scale: 2 }), // FBTC
+  gbtc: decimal("gbtc", { precision: 12, scale: 2 }), // GBTC
+  unit: varchar("unit", { length: 10 }).default("US$m").notNull(), // 单位
+  sourceUrl: text("sourceUrl"), // 数据源URL
+  fetchTimeUtc: timestamp("fetchTimeUtc"), // 抓取时间 (UTC)
+  httpStatus: int("httpStatus"), // HTTP状态码
+  parseStatus: mysqlEnum("parseStatus", ["success", "partial", "failed"]), // 解析状态
+  missingReason: text("missingReason"), // 失败原因
+  rawRowSnippet: text("rawRowSnippet"), // 原始行截断
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BtcEtfFlow = typeof btcEtfFlows.$inferSelect;
+export type InsertBtcEtfFlow = typeof btcEtfFlows.$inferInsert;

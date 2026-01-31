@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `btc_etf_flows` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `date` varchar(10) NOT NULL,\n  `total` decimal(12,2),\n  `ibit` decimal(12,2),\n  `fbtc` decimal(12,2),\n  `gbtc` decimal(12,2),\n  `total_ex_gbtc` decimal(12,2),\n  `total_ex_gbtc_reason` varchar(255),\n  `parse_status` enum('success','partial','failed') NOT NULL DEFAULT 'success',\n  `http_status` int,\n  `missing_reason` varchar(255),\n  `raw_row_snippet` text,\n  `fetch_time_utc` varchar(30),\n  `created_at` timestamp NOT NULL DEFAULT (now()),\n  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n  CONSTRAINT `btc_etf_flows_id` PRIMARY KEY(`id`),\n  CONSTRAINT `btc_etf_flows_date_unique` UNIQUE(`date`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute CREATE TABLE IF NOT EXISTS `btc_etf_flows` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `date` varchar(10) NOT NULL,\n  `total` decimal(12,2),\n  `ibit` decimal(12,2),\n  `fbtc` decimal(12,2),\n  `gbtc` decimal(12,2),\n  `total_ex_gbtc` decimal(12,2),\n  `total_ex_gbtc_reason` varchar(255),\n  `parse_status` enum('success','partial','failed') NOT NULL DEFAULT 'success',\n  `http_status` int,\n  `missing_reason` varchar(255),\n  `raw_row_snippet` text,\n  `fetch_time_utc` varchar(30),\n  `created_at` timestamp NOT NULL DEFAULT (now()),\n  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n  CONSTRAINT `btc_etf_flows_id` PRIMARY KEY(`id`),\n  CONSTRAINT `btc_etf_flows_date_unique` UNIQUE(`date`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1572
+}

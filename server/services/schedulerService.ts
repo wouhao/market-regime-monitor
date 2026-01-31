@@ -20,6 +20,7 @@ import {
   getCryptoMetricsDaysAgo,
   updateReportAIAnalysis,
 } from "../db";
+import { runEtfFlowFetch, isEtfFlowEnabled } from "../etfFlowService";
 
 // 系统用户ID（用于定时任务生成的报告，使用owner的配置）
 const SYSTEM_USER_ID = 1;
@@ -182,6 +183,22 @@ async function generateScheduledReport(): Promise<void> {
         console.log("[Scheduler] AI analysis saved to database");
       } catch (aiError) {
         console.error("[Scheduler] AI analysis failed:", aiError);
+      }
+    }
+    
+    // 抓取ETF Flow数据
+    const etfEnabled = await isEtfFlowEnabled();
+    if (etfEnabled) {
+      console.log("[Scheduler] Fetching ETF flow data...");
+      try {
+        const etfResult = await runEtfFlowFetch();
+        if (etfResult.success) {
+          console.log(`[Scheduler] ETF flow data: ${etfResult.message}`);
+        } else {
+          console.warn(`[Scheduler] ETF flow fetch failed: ${etfResult.message}`);
+        }
+      } catch (etfError) {
+        console.error("[Scheduler] ETF flow fetch error:", etfError);
       }
     }
     

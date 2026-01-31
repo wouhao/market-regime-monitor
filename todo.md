@@ -156,3 +156,20 @@
 - [x] 核心结论、证据链、杠杆/流动性判定、风险提示四个模块显示内容重复 - 已修复
 - [x] 检查AI分析输出解析逻辑 - 已重写parseAIResponse函数
 - [x] 确保各模块正确分离显示不同内容 - 已验证
+
+## 新功能 (2026-01-31 - BTC ETF Flow 模块)
+- [x] 创建 btc_etf_flows 数据库表
+- [x] 开发 Farside 网页抓取和解析服务
+- [x] 实现负数解析 `(xxx)` → `-xxx`，缺失 `-` → `null`
+- [x] 实现 parse_status 细化：success/partial/failed
+- [x] 实现 rolling 计算（窗口内有null则结果为null）
+- [x] 实现 total_ex_gbtc 计算（gbtc为null则结果为null）
+- [x] 首次部署拉取全历史数据（backfill API）
+- [x] 实现定时抓取（每日增量upsert）
+- [x] 添加系统设置开关（默认开启）
+- [x] 添加手动刷新按钮 + 显示 fetch_time_utc
+- [x] 开发前端 ETF Flow 独立卡片（市场快照下方）
+- [x] 实现提示逻辑：Inflow/Outflow/GBTC Noise
+- [x] 周末/假日标注
+- [x] manifest 字段：http_status, missing_reason, raw_row_snippet
+- [x] 单元测试覆盖（20个测试用例）

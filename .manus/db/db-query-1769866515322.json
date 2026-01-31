@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS btc_etf_flows (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  date VARCHAR(10) NOT NULL UNIQUE,\n  total DECIMAL(12,2),\n  ibit DECIMAL(12,2),\n  fbtc DECIMAL(12,2),\n  gbtc DECIMAL(12,2),\n  unit VARCHAR(10) NOT NULL DEFAULT 'US$m',\n  sourceUrl TEXT,\n  fetchTimeUtc DATETIME,\n  httpStatus INT,\n  parseStatus ENUM('success', 'partial', 'failed'),\n  missingReason TEXT,\n  rawRowSnippet TEXT,\n  createdAt DATETIME DEFAULT NOW(),\n  updatedAt DATETIME DEFAULT NOW() ON UPDATE NOW()\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute CREATE TABLE IF NOT EXISTS btc_etf_flows (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  date VARCHAR(10) NOT NULL UNIQUE,\n  total DECIMAL(12,2),\n  ibit DECIMAL(12,2),\n  fbtc DECIMAL(12,2),\n  gbtc DECIMAL(12,2),\n  unit VARCHAR(10) NOT NULL DEFAULT 'US$m',\n  sourceUrl TEXT,\n  fetchTimeUtc DATETIME,\n  httpStatus INT,\n  parseStatus ENUM('success', 'partial', 'failed'),\n  missingReason TEXT,\n  rawRowSnippet TEXT,\n  createdAt DATETIME DEFAULT NOW(),\n  updatedAt DATETIME DEFAULT NOW() ON UPDATE NOW()\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1735
+}
