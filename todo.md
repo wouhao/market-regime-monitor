@@ -268,3 +268,11 @@
   - [x] BTC Open Interest: 1D/7D/30D 变化率 (-2.01%/-5.52%/-2.84%)
   - [x] BTC Liquidations: 1D/7D/30D 变化 (-67.28%/-52.12%/-46.93%)
   - [x] Stablecoin Supply: 1D/7D/30D 变化率 (+19.22%/+17.44%/+16.14%)
+
+## Bug修复 (2026-02-01 - BTC Analysis Funding显示错误)
+- [x] 修复btcAnalysisService.ts中Funding显示格式
+  - [x] 移除formatBtcAnalysisForAI中的 *100 转换
+  - [x] 移除determineState中的 *100 转换
+  - [x] 检查S1/S2/S3状态判断阈值并调整（0.0005 → 0.05）
+- [x] 修复Dashboard.tsx中formatFunding函数
+- [x] 运行测试验证修复 (88个测试通过)

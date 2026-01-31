@@ -1219,7 +1219,8 @@ function BtcAnalysisCard({
 
   const formatFunding = (value: number | null) => {
     if (value === null) return "missing";
-    return `${(value * 100).toFixed(4)}%`;
+    // 数据库存储的已经是百分比格式，0.006585 表示 0.006585%
+    return `${value.toFixed(6)}%`;
   };
 
   const formatLiq = (value: number | null) => {

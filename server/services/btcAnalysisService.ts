@@ -260,9 +260,9 @@ function determineBtcState(
   // funding 偏正/升（latest > 0 且 latest > 7d avg）
   if (fundingLatest !== null && fundingLatest > 0) {
     if (funding7dAvg !== null && fundingLatest > funding7dAvg) {
-      s1Conditions.push(`Funding ${(fundingLatest * 100).toFixed(4)}% > 0 且上升`);
+      s1Conditions.push(`Funding ${fundingLatest.toFixed(6)}% > 0 且上升`);
     } else if (funding7dAvg === null) {
-      s1Conditions.push(`Funding ${(fundingLatest * 100).toFixed(4)}% > 0`);
+      s1Conditions.push(`Funding ${fundingLatest.toFixed(6)}% > 0`);
     }
   }
   // 价格上行（7D > 0）
@@ -297,9 +297,11 @@ function determineBtcState(
   if (liq24h !== null && liq7dAvg !== null && liq24h < liq7dAvg) {
     s3Conditions.push(`Liq 24h $${(liq24h / 1e6).toFixed(0)}M < 7D avg $${(liq7dAvg / 1e6).toFixed(0)}M`);
   }
-  // funding 不极端（|funding| < 0.05%）
-  if (fundingLatest !== null && Math.abs(fundingLatest) < 0.0005) {
-    s3Conditions.push(`Funding ${(fundingLatest * 100).toFixed(4)}% 不极端`);
+  // funding 不极端（|funding| < 0.05%，即原始值 < 0.0005）
+  // 注：数据库存储的是百分比格式，0.006585 表示 0.006585%
+  // 所以阈值 0.05% 应该是 0.05，而不是 0.0005
+  if (fundingLatest !== null && Math.abs(fundingLatest) < 0.05) {
+    s3Conditions.push(`Funding ${fundingLatest.toFixed(6)}% 不极端`);
   }
   
   // 判断状态（满足2条）
@@ -495,8 +497,8 @@ export function formatBtcAnalysisForAI(result: BtcAnalysisResult): string {
   
   // Funding
   if (evidence.funding.latest !== null) {
-    const fundingLatestStr = `${(evidence.funding.latest * 100).toFixed(4)}%`;
-    const funding7dAvgStr = evidence.funding.avg7d !== null ? `${(evidence.funding.avg7d * 100).toFixed(4)}%` : 'missing';
+    const fundingLatestStr = `${evidence.funding.latest.toFixed(6)}%`;
+    const funding7dAvgStr = evidence.funding.avg7d !== null ? `${evidence.funding.avg7d.toFixed(6)}%` : 'missing';
     lines.push(`  - Funding: ${fundingLatestStr} | 7D avg: ${funding7dAvgStr}`);
   } else {
     lines.push(`  - Funding: missing`);
