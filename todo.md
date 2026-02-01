@@ -276,3 +276,11 @@
   - [x] 检查S1/S2/S3状态判断阈值并调整（0.0005 → 0.05）
 - [x] 修复Dashboard.tsx中formatFunding函数
 - [x] 运行测试验证修复 (88个测试通过)
+
+## Bug修复 (2026-02-01 - Stablecoin数据错误)
+- [x] 检查Stablecoin实时数据获取逻辑
+  - 问题：fetchDefiLlamaData()计算了所有稳定币总量，而非USDT+USDC
+- [x] 修复数据获取逻辑
+  - 只计算USDT和USDC的供应量
+- [x] 修正2026-02-01的错误数据（$303.79B → $255.11B）
+- [x] 验证修复并运行测试 (88个测试通过)

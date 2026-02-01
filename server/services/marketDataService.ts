@@ -602,9 +602,16 @@ async function fetchDefiLlamaData(): Promise<number | null> {
     const response = await axios.get(url, { timeout: 10000 });
     
     const stablecoins = response.data?.peggedAssets || [];
-    const totalSupply = stablecoins.reduce((sum: number, coin: { circulating: { peggedUSD: number } }) => {
-      return sum + (coin.circulating?.peggedUSD || 0);
-    }, 0);
+    
+    // 只计算USDT和USDC的供应量
+    const usdt = stablecoins.find((c: { symbol: string }) => c.symbol === 'USDT');
+    const usdc = stablecoins.find((c: { symbol: string }) => c.symbol === 'USDC');
+    
+    const usdtSupply = usdt?.circulating?.peggedUSD || 0;
+    const usdcSupply = usdc?.circulating?.peggedUSD || 0;
+    const totalSupply = usdtSupply + usdcSupply;
+    
+    console.log(`[DefiLlama] USDT: $${(usdtSupply/1e9).toFixed(2)}B, USDC: $${(usdcSupply/1e9).toFixed(2)}B, Total: $${(totalSupply/1e9).toFixed(2)}B`);
     
     return totalSupply;
   } catch (error) {
