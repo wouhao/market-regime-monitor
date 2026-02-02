@@ -284,8 +284,9 @@ function parseAIResponse(content: string): AIAnalysisResult {
     summary = firstParagraph.replace(/\n/g, " ").trim();
   }
   
-  // 查找“证据链”部分 - 只提取“证据链”标题后到“杠杆/流动性判定”之前的内容
-  const evidenceMatch = content.match(/证据链[\s\S]*?(?=杠杆|流动性判定|执行开关|$)/i);
+  // 查找"证据链"部分 - 只提取"证据链"标题后到"杠杆/流动性判定"之前的内容
+  // 注意：使用完整标题"杠杆/流动性判定"作为终止标记，避免内容中包含"去杠杆"等词时被截断
+  const evidenceMatch = content.match(/证据链[\s\S]*?(?=杠杆[/／]流动性判定|执行开关|$)/i);
   if (evidenceMatch) {
     const evidenceText = evidenceMatch[0];
     // 提取以"-"开头的行，但排除包含"理由"、"Allowed"、"Helper"、"Medium"等开关相关关键词的行
