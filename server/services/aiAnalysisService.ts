@@ -226,17 +226,47 @@ ${input.btcAnalysis.formattedText}
 
 ---
 
-请基于以上数据，生成AI解读报告。要求：
+请基于以上数据，生成AI解读报告。
 
-1. **一句话结论**：当前情景 + watch/confirmed + 核心理由（最多2句，纯文本，不要表格）
+## ❗❗❗ 输出格式硬性要求（必须严格遵守）
 
-2. **证据链**：列出3-5个关键组合信号，每个信号一行，使用“-”开头，例如：
+你的输出必须使用以下固定分隔符来分隔各个部分，这是机器解析的唯一依据：
+
+\`\`\`
+===SUMMARY===
+当前情景 + watch/confirmed + 核心理由（最多2句，纯文本）
+
+===EVIDENCE===
+- 证据1
+- 证据2
+- 证据3
+...
+
+===LEVERAGE===
+一句话判断"堆积/出清/中性"
+
+===SWITCH===
+- Margin: Allowed/Pause - 理由
+- Put: Helper/Main - 理由
+- Spot: Fast/Medium/Slow - 理由
+
+===RISK===
+- 风险提示1
+- 风险提示2
+...
+\`\`\`
+
+## 内容要求
+
+1. **===SUMMARY===**：当前情景 + watch/confirmed + 核心理由（最多2句，纯文本，不要表格）
+
+2. **===EVIDENCE===**：列出3-5个关键组合信号，每个信号一行，使用"-"开头，例如：
    - QQQ 7D上行+2.5%而GLD 7D强势+5.3% → Base信号
    - BTC 7D=-6%且OI↓/清算↑ → 风险偏好环境偏弱
 
-3. **杠杆/流动性判定**：一句话判断"堆积/出清/中性"（用于判断环境，非交易信号）
+3. **===LEVERAGE===**：一句话判断"堆积/出清/中性"（用于判断环境，非交易信号）
 
-4. **执行开关建议**（针对美股配置，每个开关一行，使用"-"开头）：
+4. **===SWITCH===**（针对美股配置，每个开关一行，使用"-"开头）：
    - Margin: Allowed/Pause - 理由（IBKR抵押借款，仅用于美股配置）
    - Put: Helper/Main - 理由（美股现金担保put，限价建仓工具）
    - Spot: Fast/Medium/Slow - 理由（美股现货买入节奏，向$700k里程碑推进）
@@ -246,21 +276,23 @@ ${input.btcAnalysis.formattedText}
    - Put关注波动率环境（VIX）和建仓机会
    - Spot关注整体风险偏好环境和买入节奏
 
-5. **风险提示**：若触发阈值（VIX>20、HY OAS +25bp、real yield +15bp、BTC 7D<-5%），要点名，每个风险一行，使用"-"开头
+5. **===RISK===**：若触发阈值（VIX>20、HY OAS +25bp、real yield +15bp、BTC 7D<-5%），要点名，每个风险一行，使用"-"开头。若无风险，写"无"
 
-6. **必须包含**：
+6. **必须包含**（在===SWITCH===后面添加）：
    "市场信号来自BTC/宏观/信用，用于判定风险偏好；执行对象是美股（GOOG/META/MSFT等）的买入节奏与建仓工具。"
 
-**输出格式要求**：
+## 其他要求
 - 不要使用Markdown表格
 - 使用纯文本和列表格式
-- 用中文输出，保持专业简洁`;
+- 用中文输出，保持专业简洁
+- 分隔符===XXX===必须单独成行，不要加任何前缀或后缀`;
 
   return message;
 }
 
 /**
- * 解析AI响应 - 使用更精确的分段解析逻辑
+ * 解析AI响应 - 使用显式分隔符方案（方案B）
+ * 通过固定的===XXX===分隔符来解析各个部分，避免正则匹配内容关键词导致的截断问题
  */
 function parseAIResponse(content: string): AIAnalysisResult {
   let summary = "";
@@ -273,135 +305,164 @@ function parseAIResponse(content: string): AIAnalysisResult {
   };
   let riskAlerts: string[] = [];
   
-  // 使用更精确的正则表达式分段
-  // 查找“一句话结论”部分
-  const summaryMatch = content.match(/一句话结论[\s\S]*?(?=证据链|市场情景判定|$)/i);
-  if (summaryMatch) {
-    // 提取第一句话（到第一个句号或换行结束）
-    const summaryText = summaryMatch[0].replace(/一句话结论[\s:]*/i, "").trim();
-    // 只取第一段（到“证据链”或“市场情景判定”之前）
-    const firstParagraph = summaryText.split(/\n\n|证据链|市场情景判定/)[0];
-    summary = firstParagraph.replace(/\n/g, " ").trim();
-  }
+  // 定义分隔符
+  const DELIMITERS = {
+    SUMMARY: "===SUMMARY===",
+    EVIDENCE: "===EVIDENCE===",
+    LEVERAGE: "===LEVERAGE===",
+    SWITCH: "===SWITCH===",
+    RISK: "===RISK===",
+  };
   
-  // 查找"证据链"部分 - 只提取"证据链"标题后到"杠杆/流动性判定"之前的内容
-  // 注意：使用完整标题"杠杆/流动性判定"作为终止标记，避免内容中包含"去杠杆"等词时被截断
-  const evidenceMatch = content.match(/证据链[\s\S]*?(?=杠杆[/／]流动性判定|执行开关|$)/i);
-  if (evidenceMatch) {
-    const evidenceText = evidenceMatch[0];
-    // 提取以"-"开头的行，但排除包含"理由"、"Allowed"、"Helper"、"Medium"等开关相关关键词的行
-    const lines = evidenceText.split("\n").filter(l => {
-      const trimmed = l.trim();
-      if (!trimmed.startsWith("-")) return false;
-      const lower = trimmed.toLowerCase();
-      // 排除开关相关的行
-      if (lower.includes("理由") || lower.includes("allowed") || lower.includes("pause") || 
-          lower.includes("helper") || lower.includes("main") || lower.includes("fast") || 
-          lower.includes("medium") || lower.includes("slow") || lower.includes("margin") ||
-          lower.includes("put") || lower.includes("spot") || lower.includes("借款") ||
-          lower.includes("建仓工具") || lower.includes("买入节奏")) {
-        return false;
-      }
-      return true;
-    });
-    evidenceChain = lines.map(l => l.replace(/^[-•]\s*/, "").trim()).filter(l => l.length > 0);
-  }
+  // 检查是否使用了新的分隔符格式
+  const hasNewFormat = content.includes(DELIMITERS.SUMMARY) || content.includes(DELIMITERS.EVIDENCE);
   
-  // 查找“杠杆/流动性判定”部分 - 只提取该标题后到“执行开关”之前的内容
-  const leverageMatch = content.match(/杠杆[\s\S]*?判定[\s\S]*?(?=执行开关|市场信号来自|$)/i);
-  if (leverageMatch) {
-    const leverageText = leverageMatch[0];
-    // 提取标题后的第一段内容
-    const afterTitle = leverageText.replace(/杠杆[^\n]*判定[^\n]*/i, "").trim();
-    const firstParagraph = afterTitle.split(/\n\n|执行开关|市场信号来自/)[0];
-    leverageJudgment = firstParagraph.replace(/\n/g, " ").trim();
-  }
-  
-  // 查找“执行开关建议”部分
-  const switchMatch = content.match(/执行开关[\s\S]*?(?=风险提示|$)/i);
-  if (switchMatch) {
-    const switchText = switchMatch[0];
-    const lines = switchText.split("\n");
+  if (hasNewFormat) {
+    // 新格式：使用显式分隔符解析
+    console.log("[AIAnalysis] Using new delimiter-based parsing");
     
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("-")) continue;
+    // 提取各个部分的内容
+    const extractSection = (startDelimiter: string, endDelimiters: string[]): string => {
+      const startIndex = content.indexOf(startDelimiter);
+      if (startIndex === -1) return "";
       
-      const lowerLine = trimmed.toLowerCase();
+      const contentAfterStart = content.substring(startIndex + startDelimiter.length);
       
-      // 清理开关理由中的冗余前缀
-      const cleanRationale = (text: string): string => {
-        return text
-          .replace(/^[-•]\s*/, "")
-          .replace(/\[IBKR\]\s*/gi, "")
-          .replace(/\[US Equities\]\s*/gi, "")
-          .replace(/Margin-loan\s*\([^)]+\):\s*/gi, "")
-          .replace(/Put-selling\s*\([^)]+\):\s*/gi, "")
-          .replace(/Spot pacing:\s*/gi, "")
-          .replace(/^Margin:\s*/gi, "")
-          .replace(/^Put:\s*/gi, "")
-          .replace(/^Spot:\s*/gi, "")
-          .replace(/^Allowed\s*[-–]\s*/gi, "")
-          .replace(/^Pause\s*[-–]\s*/gi, "")
-          .replace(/^Helper\s*[-–]\s*/gi, "")
-          .replace(/^Main\s*[-–]\s*/gi, "")
-          .replace(/^Fast\s*[-–]\s*/gi, "")
-          .replace(/^Medium\s*[-–]\s*/gi, "")
-          .replace(/^Slow\s*[-–]\s*/gi, "")
-          .trim();
-      };
+      // 找到最近的结束分隔符
+      let endIndex = contentAfterStart.length;
+      for (const endDelimiter of endDelimiters) {
+        const idx = contentAfterStart.indexOf(endDelimiter);
+        if (idx !== -1 && idx < endIndex) {
+          endIndex = idx;
+        }
+      }
       
-      // Margin开关 - 包含margin/loan/借款/ibkr/allowed/pause
-      if ((lowerLine.includes("margin") || lowerLine.includes("loan") || lowerLine.includes("借款") || lowerLine.includes("ibkr") || lowerLine.includes("allowed") || lowerLine.includes("pause")) && 
-          !lowerLine.includes("spot") && !lowerLine.includes("put") && !lowerLine.includes("现货") && !lowerLine.includes("建仓工具")) {
-        const rationale = cleanRationale(trimmed);
-        if (rationale && !switchRationale.marginBorrow) {
+      return contentAfterStart.substring(0, endIndex).trim();
+    };
+    
+    // 解析 SUMMARY
+    const summarySection = extractSection(DELIMITERS.SUMMARY, [DELIMITERS.EVIDENCE, DELIMITERS.LEVERAGE, DELIMITERS.SWITCH, DELIMITERS.RISK]);
+    summary = summarySection.replace(/\n/g, " ").trim();
+    
+    // 解析 EVIDENCE
+    const evidenceSection = extractSection(DELIMITERS.EVIDENCE, [DELIMITERS.LEVERAGE, DELIMITERS.SWITCH, DELIMITERS.RISK]);
+    if (evidenceSection) {
+      const lines = evidenceSection.split("\n").filter(l => l.trim().startsWith("-"));
+      evidenceChain = lines.map(l => l.replace(/^[-•]\s*/, "").trim()).filter(l => l.length > 0);
+    }
+    
+    // 解析 LEVERAGE
+    const leverageSection = extractSection(DELIMITERS.LEVERAGE, [DELIMITERS.SWITCH, DELIMITERS.RISK]);
+    leverageJudgment = leverageSection.replace(/\n/g, " ").trim();
+    
+    // 解析 SWITCH
+    const switchSection = extractSection(DELIMITERS.SWITCH, [DELIMITERS.RISK]);
+    if (switchSection) {
+      const lines = switchSection.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("-")) continue;
+        
+        const lowerLine = trimmed.toLowerCase();
+        
+        // 提取完整的开关理由（去掉前缀"-"）
+        const rationale = trimmed.replace(/^[-•]\s*/, "").trim();
+        
+        if (lowerLine.includes("margin") && !switchRationale.marginBorrow) {
           switchRationale.marginBorrow = rationale;
-        }
-      }
-      // Put开关 - 包含put/卖put/建仓工具/helper/main
-      else if ((lowerLine.includes("put") || lowerLine.includes("卖put") || lowerLine.includes("建仓工具") || lowerLine.includes("helper") || lowerLine.includes("main")) && 
-               !lowerLine.includes("margin") && !lowerLine.includes("spot") && !lowerLine.includes("借款") && !lowerLine.includes("现货节奏")) {
-        const rationale = cleanRationale(trimmed);
-        if (rationale && !switchRationale.putSelling) {
+        } else if (lowerLine.includes("put") && !lowerLine.includes("spot") && !switchRationale.putSelling) {
           switchRationale.putSelling = rationale;
-        }
-      }
-      // Spot开关 - 包含spot/pacing/现货节奏/买入节奏/fast/medium/slow
-      else if ((lowerLine.includes("spot") || lowerLine.includes("pacing") || lowerLine.includes("现货节奏") || lowerLine.includes("买入节奏") || lowerLine.includes("现货买入") || lowerLine.includes("fast") || lowerLine.includes("medium") || lowerLine.includes("slow")) && 
-               !lowerLine.includes("margin") && !lowerLine.includes("put") && !lowerLine.includes("借款") && !lowerLine.includes("建仓工具")) {
-        const rationale = cleanRationale(trimmed);
-        if (rationale && !switchRationale.spotPace) {
+        } else if (lowerLine.includes("spot") && !switchRationale.spotPace) {
           switchRationale.spotPace = rationale;
         }
       }
     }
-  }
-  
-  // 查找“风险提示”部分
-  const riskMatch = content.match(/风险提示[\s\S]*$/i);
-  if (riskMatch) {
-    const riskText = riskMatch[0];
-    // 提取以"-"开头的行，但排除开关相关的行
-    const lines = riskText.split("\n").filter(l => {
-      const trimmed = l.trim();
-      if (!trimmed.startsWith("-") && !trimmed.startsWith("⚠")) return false;
-      const lower = trimmed.toLowerCase();
-      // 排除开关相关的行
-      if (lower.includes("理由") || lower.includes("allowed") || lower.includes("pause") || 
-          lower.includes("helper") || lower.includes("main") || lower.includes("fast") || 
-          lower.includes("medium") || lower.includes("slow") || lower.includes("margin") ||
-          lower.includes("put") || lower.includes("spot") || lower.includes("借款") ||
-          lower.includes("建仓工具") || lower.includes("买入节奏")) {
-        return false;
+    
+    // 解析 RISK
+    const riskSection = extractSection(DELIMITERS.RISK, []);
+    if (riskSection) {
+      // 检查是否为"无"
+      if (riskSection.trim() === "无" || riskSection.trim() === "暂无") {
+        riskAlerts = [];
+      } else {
+        const lines = riskSection.split("\n").filter(l => l.trim().startsWith("-") || l.trim().startsWith("⚠"));
+        riskAlerts = lines.map(l => l.replace(/^[-•⚠]\s*/, "").trim()).filter(l => l.length > 0);
       }
-      return true;
-    });
-    riskAlerts = lines.map(l => l.replace(/^[-•⚠]\s*/, "").trim()).filter(l => l.length > 0);
+    }
+    
+  } else {
+    // 旧格式兼容：使用原来的正则解析逻辑
+    console.log("[AIAnalysis] Using legacy regex-based parsing (fallback)");
+    
+    // 查找"一句话结论"部分
+    const summaryMatch = content.match(/一句话结论[\s\S]*?(?=证据链|市场情景判定|$)/i);
+    if (summaryMatch) {
+      const summaryText = summaryMatch[0].replace(/\*{0,2}一句话结论\*{0,2}[\s:：]*/i, "").trim();
+      const firstParagraph = summaryText.split(/\n\n/)[0];
+      summary = firstParagraph.replace(/\n/g, " ").trim();
+    }
+    
+    // 查找"证据链"部分
+    const evidenceMatch = content.match(/证据链[\s\S]*?(?=杠杆[/／]流动性判定|执行开关|$)/i);
+    if (evidenceMatch) {
+      const evidenceText = evidenceMatch[0];
+      const lines = evidenceText.split("\n").filter(l => {
+        const trimmed = l.trim();
+        if (!trimmed.startsWith("-")) return false;
+        const lower = trimmed.toLowerCase();
+        if (lower.includes("margin") || lower.includes("put") || lower.includes("spot") ||
+            lower.includes("allowed") || lower.includes("pause") || lower.includes("helper") ||
+            lower.includes("main") || lower.includes("fast") || lower.includes("medium") || lower.includes("slow")) {
+          return false;
+        }
+        return true;
+      });
+      evidenceChain = lines.map(l => l.replace(/^[-•]\s*/, "").trim()).filter(l => l.length > 0);
+    }
+    
+    // 查找"杠杆/流动性判定"部分
+    const leverageMatch = content.match(/杠杆[/／]流动性判定[\s\S]*?(?=执行开关|市场信号来自|$)/i);
+    if (leverageMatch) {
+      const leverageText = leverageMatch[0].replace(/\*{0,2}杠杆[/／]流动性判定\*{0,2}[\s:：]*/i, "").trim();
+      leverageJudgment = leverageText.split(/\n\n/)[0].replace(/\n/g, " ").trim();
+    }
+    
+    // 查找"执行开关"部分
+    const switchMatch = content.match(/执行开关[\s\S]*?(?=风险提示|$)/i);
+    if (switchMatch) {
+      const switchText = switchMatch[0];
+      const lines = switchText.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("-")) continue;
+        const lowerLine = trimmed.toLowerCase();
+        const rationale = trimmed.replace(/^[-•]\s*/, "").trim();
+        
+        if (lowerLine.includes("margin") && !switchRationale.marginBorrow) {
+          switchRationale.marginBorrow = rationale;
+        } else if (lowerLine.includes("put") && !lowerLine.includes("spot") && !switchRationale.putSelling) {
+          switchRationale.putSelling = rationale;
+        } else if (lowerLine.includes("spot") && !switchRationale.spotPace) {
+          switchRationale.spotPace = rationale;
+        }
+      }
+    }
+    
+    // 查找"风险提示"部分
+    const riskMatch = content.match(/风险提示[\s\S]*$/i);
+    if (riskMatch) {
+      const riskText = riskMatch[0];
+      const lines = riskText.split("\n").filter(l => {
+        const trimmed = l.trim();
+        return trimmed.startsWith("-") || trimmed.startsWith("⚠");
+      });
+      riskAlerts = lines.map(l => l.replace(/^[-•⚠]\s*/, "").trim()).filter(l => l.length > 0);
+    }
   }
   
   // 调试日志
   console.log("[AIAnalysis] Parsed result:", {
+    format: hasNewFormat ? "delimiter" : "legacy",
     summaryLength: summary.length,
     evidenceCount: evidenceChain.length,
     leverageLength: leverageJudgment.length,
