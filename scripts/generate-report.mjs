@@ -130,6 +130,9 @@ async function fetchFredData(seriesId, apiKey) {
 /**
  * 获取所有 BTC 永续合约的 symbol 列表
  */
+// Major exchange codes: A=Binance, 6=OKX, 4=Bybit, 7=Deribit, 2=BitMEX, 0=Bitfinex
+const MAJOR_EXCHANGE_CODES = new Set(["A", "6", "4", "7", "2", "0"]);
+
 async function getCoinalyzeBtcSymbols(apiKey) {
   try {
     const data = await fetchJson("https://api.coinalyze.net/v1/future-markets", {
@@ -137,11 +140,16 @@ async function getCoinalyzeBtcSymbols(apiKey) {
       timeout: 15000,
     });
     if (Array.isArray(data)) {
-      const symbols = data
+      const allSymbols = data
         .filter((m) => m.base_asset === "BTC" && m.is_perpetual === true && m.symbol)
         .map((m) => m.symbol);
-      console.log(`[Coinalyze] Found ${symbols.length} BTC perpetual contracts`);
-      return symbols;
+      // Filter to major exchanges only to stay within 40 API calls/min rate limit
+      const majorSymbols = allSymbols.filter((s) => {
+        const code = s.split(".").pop();
+        return MAJOR_EXCHANGE_CODES.has(code);
+      });
+      console.log(`[Coinalyze] Found ${allSymbols.length} BTC perps, using ${majorSymbols.length} from major exchanges`);
+      return majorSymbols.length > 0 ? majorSymbols : allSymbols.slice(0, 10);
     }
   } catch (e) {
     console.warn(`[Coinalyze] Failed to fetch markets, using defaults`);
@@ -177,7 +185,7 @@ async function fetchCoinalyzeBatchHistory(endpoint, symbols, apiKey, extraParams
       const data = await fetchJson(url, { headers: { api_key: apiKey }, timeout: 15000 });
       if (Array.isArray(data)) results.push(...data);
     } catch (e) {
-      console.warn(`[Coinalyze] Batch ${endpoint} failed, continuing...`);
+      console.warn(`[Coinalyze] Batch ${endpoint} failed: ${e.message}`);
     }
     if (i + batchSize < symbols.length) await sleep(1500); // Rate limit: 40/min
   }
@@ -191,11 +199,18 @@ async function fetchCoinalyzeBatchHistory(endpoint, symbols, apiKey, extraParams
  * Coinalyze funding-rate-history 返回 candlestick_fr: {t, o, h, l, c}
  * 值已经是 % 格式 (如 0.01 = 0.01%)
  */
+// Cache symbols so we only fetch the market list once
+let _cachedSymbols = null;
+async function getCachedCoinalyzeBtcSymbols(apiKey) {
+  if (!_cachedSymbols) _cachedSymbols = await getCoinalyzeBtcSymbols(apiKey);
+  return _cachedSymbols;
+}
+
 async function fetchFundingRateHistory(apiKey) {
   if (!apiKey) return await fetchFundingRateFallback();
   
   try {
-    const symbols = await getCoinalyzeBtcSymbols(apiKey);
+    const symbols = await getCachedCoinalyzeBtcSymbols(apiKey);
     const data = await fetchCoinalyzeBatchHistory("funding-rate-history", symbols, apiKey);
     
     if (!data || data.length === 0) {
@@ -254,7 +269,8 @@ async function fetchOIHistory(apiKey) {
   if (!apiKey) return await fetchOIFallback(null);
   
   try {
-    const symbols = await getCoinalyzeBtcSymbols(apiKey);
+    await sleep(3000); // Wait for rate limit recovery from previous Coinalyze calls
+    const symbols = await getCachedCoinalyzeBtcSymbols(apiKey);
     const data = await fetchCoinalyzeBatchHistory("open-interest-history", symbols, apiKey, {
       convert_to_usd: "true",
     });
@@ -304,16 +320,23 @@ async function fetchOIFallback(coinglassKey) {
       console.error("[OI] CoinGlass fallback failed:", e.message);
     }
   }
-  // Try OKX
+  // Try OKX - use oiUsd field directly (oi field is contract count, NOT USD)
   try {
     const url = "https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=BTC-USDT-SWAP";
     const data = await fetchJson(url, { timeout: 8000 });
-    if (data?.data?.[0]?.oi) {
-      const oi = parseFloat(data.data[0].oi);
-      const priceData = await fetchJson("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT-SWAP", { timeout: 5000 });
-      const price = parseFloat(priceData?.data?.[0]?.last || "0");
-      const oiUsd = oi * price;
-      console.log(`[OI] OKX fallback: $${(oiUsd / 1e9).toFixed(2)}B`);
+    if (data?.data?.[0]) {
+      const d = data.data[0];
+      // oiUsd is the correct USD-denominated OI value
+      // oi = contract count (NOT USD), oiCcy = BTC amount
+      let oiUsd = parseFloat(d.oiUsd || "0");
+      if (!oiUsd || isNaN(oiUsd)) {
+        // Fallback: use oiCcy * price
+        const oiCcy = parseFloat(d.oiCcy || "0");
+        const priceData = await fetchJson("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT-SWAP", { timeout: 5000 });
+        const price = parseFloat(priceData?.data?.[0]?.last || "0");
+        oiUsd = oiCcy * price;
+      }
+      console.log(`[OI] OKX fallback: $${(oiUsd / 1e9).toFixed(2)}B (single exchange)`);
       return { prices: [], latest: isNaN(oiUsd) ? null : oiUsd, source: "OKX" };
     }
   } catch (e) {
@@ -331,7 +354,8 @@ async function fetchLiquidationHistory(apiKey) {
   if (!apiKey) return await fetchLiquidationFallback();
   
   try {
-    const symbols = await getCoinalyzeBtcSymbols(apiKey);
+    await sleep(3000); // Wait for rate limit recovery from previous Coinalyze calls
+    const symbols = await getCachedCoinalyzeBtcSymbols(apiKey);
     const data = await fetchCoinalyzeBatchHistory("liquidation-history", symbols, apiKey, {
       convert_to_usd: "true",
     });
@@ -415,9 +439,13 @@ async function fetchLiquidationFallback() {
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
     let long24h = 0, short24h = 0, total7d = 0;
 
+    // BTC-USDT-SWAP contract value: 0.01 BTC per contract
+    // sz = number of contracts, bkPx = bankruptcy price in USDT
+    // Correct notional = bkPx * sz * ctVal (0.01)
+    const ctVal = 0.01; // BTC per contract for BTC-USDT-SWAP
     for (const d of allDetails) {
       const ts = parseInt(d.ts);
-      const notional = parseFloat(d.bkPx) * parseFloat(d.sz);
+      const notional = parseFloat(d.bkPx) * parseFloat(d.sz) * ctVal;
       if (isNaN(notional)) continue;
       if (ts >= sevenDaysAgo) {
         total7d += notional;

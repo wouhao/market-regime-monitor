@@ -329,3 +329,7 @@
 - [x] 爆仓数据显示$0：已修复Coinalyze liquidation-history API调用（60天daily interval）
 - [x] 资金费率格式问题：已改用Coinalyze funding-rate-history（值已是%格式），前端显示4位小数
 - [x] 验证ETF数据准确性（数据正确，无需修改）
+
+## Bug修复 (2026-02-28 - OI和Liquidations数值异常)
+- [x] BTC Open Interest显示$192.80B：修复Coinalyze速率限制（限制主要交易所）+OKX fallback用oiUsd字段
+- [x] BTC Liquidations显示$1.72B：修复Coinalyze速率限制+OKX fallback乘以ctVal(0.01)
