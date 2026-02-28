@@ -1,7 +1,7 @@
 {
   "version": "2.1",
-  "generatedAt": "2026-02-28T10:21:32.588Z",
-  "generatedAtBJT": "2026-02-28 18:21:32",
+  "generatedAt": "2026-02-28T10:56:41.514Z",
+  "generatedAtBJT": "2026-02-28 18:56:41",
   "date": "2026-02-28",
   "regime": {
     "regime": "risk_off",
@@ -32,11 +32,11 @@
     {
       "indicator": "BTC-USD",
       "displayName": "Bitcoin",
-      "latestValue": 63695.578125,
-      "change1d": -3.3183957537588036,
-      "change7d": -6.335219028541848,
-      "change30d": -24.675516171045086,
-      "ma20": 67330.953125,
+      "latestValue": 63930.44921875,
+      "change1d": -2.9618919774643744,
+      "change7d": -5.989839487289421,
+      "change30d": -24.397764646938626,
+      "ma20": 67342.6966796875,
       "aboveMa20": false,
       "sparklineData": [
         84128.65625,
@@ -68,8 +68,9 @@
         67960.125,
         67453.7734375,
         65881.796875,
-        63695.578125
-      ]
+        63930.44921875
+      ],
+      "changeType": "percent"
     },
     {
       "indicator": "QQQ",
@@ -111,7 +112,8 @@
         616.6799926757812,
         609.239990234375,
         607.2899780273438
-      ]
+      ],
+      "changeType": "percent"
     },
     {
       "indicator": "GLD",
@@ -153,7 +155,8 @@
         473.4200134277344,
         477.4800109863281,
         483.75
-      ]
+      ],
+      "changeType": "percent"
     },
     {
       "indicator": "VIXCLS",
@@ -195,7 +198,8 @@
         19.55,
         17.93,
         18.63
-      ]
+      ],
+      "changeType": "percent"
     },
     {
       "indicator": "DX-Y.NYB",
@@ -237,7 +241,8 @@
         97.69999694824219,
         97.79000091552734,
         97.61000061035156
-      ]
+      ],
+      "changeType": "percent"
     },
     {
       "indicator": "DGS10",
@@ -279,7 +284,8 @@
         4.04,
         4.05,
         4.02
-      ]
+      ],
+      "changeType": "percent"
     },
     {
       "indicator": "DFII10",
@@ -321,7 +327,8 @@
         1.78,
         1.77,
         1.74
-      ]
+      ],
+      "changeType": "percent"
     },
     {
       "indicator": "BAMLH0A0HYM2",
@@ -363,16 +370,17 @@
         2.97,
         2.94,
         2.98
-      ]
+      ],
+      "changeType": "percent"
     },
     {
       "indicator": "crypto_funding",
       "displayName": "BTC Funding Rate",
-      "latestValue": -0.002214284102350527,
-      "change1d": -547.7865151219804,
-      "change7d": -202.85357872719283,
-      "change30d": -136.15787406270252,
-      "ma20": 0.0012309831692636007,
+      "latestValue": -0.0014733305636867335,
+      "change1d": -0.0019678260492748466,
+      "change7d": -0.0036261813733057735,
+      "change30d": -0.007597263897020066,
+      "ma20": 0.0012680308461967902,
       "aboveMa20": false,
       "sparklineData": [
         0.005458,
@@ -404,17 +412,18 @@
         -0.0037343423735395538,
         0.0013373772371700135,
         0.0004944954855881132,
-        -0.002214284102350527
-      ]
+        -0.0014733305636867335
+      ],
+      "changeType": "absolute"
     },
     {
       "indicator": "crypto_oi",
       "displayName": "BTC Open Interest",
-      "latestValue": 13103473953.89993,
-      "change1d": -1.150116312235871,
-      "change7d": -5.8124716561796825,
-      "change30d": -36.405453650094735,
-      "ma20": 13692536647.82894,
+      "latestValue": 13142331917.12897,
+      "change1d": -0.8569799150447412,
+      "change7d": -5.533161335428516,
+      "change30d": -36.21686590975,
+      "ma20": 13694479545.99039,
       "aboveMa20": false,
       "sparklineData": [
         19543174920.689262,
@@ -446,28 +455,30 @@
         13836253476.47382,
         13582183450.1389,
         13255932597.037449,
-        13103473953.89993
-      ]
+        13142331917.12897
+      ],
+      "changeType": "percent"
     },
     {
       "indicator": "crypto_liquidations",
       "displayName": "BTC Liquidations (24h)",
-      "latestValue": 17252400.887679987,
+      "latestValue": 16888232.048929986,
       "change1d": null,
       "change7d": null,
       "change30d": null,
       "ma20": null,
       "aboveMa20": null,
-      "sparklineData": []
+      "sparklineData": [],
+      "changeType": "percent"
     },
     {
       "indicator": "stablecoin",
       "displayName": "Stablecoin Supply (USDT+USDC)",
-      "latestValue": 258872885417.72998,
-      "change1d": 0.03258659631151358,
-      "change7d": 0.7077942375881752,
-      "change30d": 0.6178166398493717,
-      "ma20": 257678781949.08652,
+      "latestValue": 258870792196.56,
+      "change1d": 0.03177774246954529,
+      "change7d": 0.7069799240823778,
+      "change30d": 0.6170030538937467,
+      "ma20": 257678677288.02798,
       "aboveMa20": true,
       "sparklineData": [
         255761638388,
@@ -499,8 +510,9 @@
         258641731110,
         259102550893,
         258788555036,
-        258872885417.72998
-      ]
+        258870792196.56
+      ],
+      "changeType": "percent"
     }
   ],
   "btcAnalysis": {
@@ -509,24 +521,24 @@
     "confidence": "watch",
     "evidence": {
       "price": {
-        "latest": 63695.578125,
-        "pct7d": -6.335219028541848,
-        "pct30d": -24.675516171045086
+        "latest": 63930.44921875,
+        "pct7d": -5.989839487289421,
+        "pct30d": -24.397764646938626
       },
       "oi": {
-        "latest": 13103473953.89993,
-        "pct7d": -5.8124716561796825
+        "latest": 13142331917.12897,
+        "pct7d": -5.533161335428516
       },
       "funding": {
-        "latest": -0.002214284102350527
+        "latest": -0.0014733305636867335
       },
       "liquidations": {
-        "h24": 17252400.887679987
+        "h24": 16888232.048929986
       },
       "stablecoin": {
-        "latest": 258872885417.72998,
-        "pct7d": 0.7077942375881752,
-        "pct30d": 0.6178166398493717
+        "latest": 258870792196.56,
+        "pct7d": 0.7069799240823778,
+        "pct30d": 0.6170030538937467
       },
       "etfFlow": {
         "today": -27.5,
@@ -542,12 +554,12 @@
     ]
   },
   "liquidationData": {
-    "total24h": 17252400.887679987,
-    "long24h": 13179192.90811999,
-    "short24h": 4073207.979559997,
-    "total7d": 17252400.88767998,
+    "total24h": 16888232.048929986,
+    "long24h": 12504121.853379987,
+    "short24h": 4384110.1955499975,
+    "total7d": 16888232.048929997,
     "source": "OKX",
-    "requestTime": "2026-02-28T10:21:30.861Z"
+    "requestTime": "2026-02-28T10:56:38.430Z"
   },
   "etfFlow": [
     {
