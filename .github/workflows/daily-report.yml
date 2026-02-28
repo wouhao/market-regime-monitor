@@ -1,0 +1,4 @@
+git clone https://github.com/wouhao/market-regime-monitor.git
+cd market-regime-monitor
+# 文件已在仓库中 ，只需要推送
+git push origin main
