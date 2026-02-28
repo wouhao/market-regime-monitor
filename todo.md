@@ -338,3 +338,6 @@
 - [x] Liquidations仍只有OKX数据$17.25M：增加端点间延迟到20秒避免429
 - [x] Funding Rate变化率异常：改用绝对变化而非百分比变化
 - [x] Liquidations没有历史数据：通过修复速率限制解决
+
+## Bug修复 (2026-02-28 - Liquidations仍然失败)
+- [x] Coinalyze liquidation-history端点仍然失败：硬编码8个主要symbol(24 calls总计)替代15个(45 calls)，避免超过40/min限制

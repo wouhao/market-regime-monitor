@@ -130,31 +130,25 @@ async function fetchFredData(seriesId, apiKey) {
 /**
  * 获取所有 BTC 永续合约的 symbol 列表
  */
-// Major exchange codes: A=Binance, 6=OKX, 4=Bybit, 7=Deribit, 2=BitMEX, 0=Bitfinex
-const MAJOR_EXCHANGE_CODES = new Set(["A", "6", "4", "7", "2", "0"]);
+// Hardcoded 9 major BTC perpetual contract symbols (USDT + coin-margined)
+// These 9 cover ~90%+ of BTC OI market share
+// 9 symbols × 3 endpoints = 27 API calls, well within 40 calls/min rate limit
+// A=Binance, 6=OKX, 4=Bybit, 7=Deribit, 2=BitMEX, 0=Bitfinex
+const MAJOR_BTC_PERP_SYMBOLS = [
+  "BTCUSDT_PERP.A",  // Binance USDT
+  "BTCUSD_PERP.A",   // Binance USD (coin-margined)
+  "BTCUSDT_PERP.6",  // OKX USDT
+  "BTCUSD_PERP.6",   // OKX USD (coin-margined)
+  "BTCUSDT_PERP.4",  // Bybit USDT
+  "BTCUSD_PERP.4",   // Bybit USD (inverse)
+  "BTCUSD_PERP.7",   // Deribit
+  "BTCUSD_PERP.2",   // BitMEX
+  "BTCUSD_PERP.0",   // Bitfinex
+];
 
-async function getCoinalyzeBtcSymbols(apiKey) {
-  try {
-    const data = await fetchJson("https://api.coinalyze.net/v1/future-markets", {
-      headers: { api_key: apiKey },
-      timeout: 15000,
-    });
-    if (Array.isArray(data)) {
-      const allSymbols = data
-        .filter((m) => m.base_asset === "BTC" && m.is_perpetual === true && m.symbol)
-        .map((m) => m.symbol);
-      // Filter to major exchanges only to stay within 40 API calls/min rate limit
-      const majorSymbols = allSymbols.filter((s) => {
-        const code = s.split(".").pop();
-        return MAJOR_EXCHANGE_CODES.has(code);
-      });
-      console.log(`[Coinalyze] Found ${allSymbols.length} BTC perps, using ${majorSymbols.length} from major exchanges`);
-      return majorSymbols.length > 0 ? majorSymbols : allSymbols.slice(0, 10);
-    }
-  } catch (e) {
-    console.warn(`[Coinalyze] Failed to fetch markets, using defaults`);
-  }
-  return ["BTCUSDT_PERP.A", "BTCUSDT_PERP.6", "BTCUSDT_PERP.4", "BTCUSDT_PERP.7", "BTCUSD_PERP.A", "BTCUSD_PERP.2"];
+function getCoinalyzeBtcSymbols() {
+  console.log(`[Coinalyze] Using ${MAJOR_BTC_PERP_SYMBOLS.length} hardcoded BTC perp symbols`);
+  return MAJOR_BTC_PERP_SYMBOLS;
 }
 
 /**
@@ -201,8 +195,8 @@ async function fetchCoinalyzeBatchHistory(endpoint, symbols, apiKey, extraParams
  */
 // Cache symbols so we only fetch the market list once
 let _cachedSymbols = null;
-async function getCachedCoinalyzeBtcSymbols(apiKey) {
-  if (!_cachedSymbols) _cachedSymbols = await getCoinalyzeBtcSymbols(apiKey);
+function getCachedCoinalyzeBtcSymbols() {
+  if (!_cachedSymbols) _cachedSymbols = getCoinalyzeBtcSymbols();
   return _cachedSymbols;
 }
 
@@ -210,7 +204,7 @@ async function fetchFundingRateHistory(apiKey) {
   if (!apiKey) return await fetchFundingRateFallback();
   
   try {
-    const symbols = await getCachedCoinalyzeBtcSymbols(apiKey);
+    const symbols = getCachedCoinalyzeBtcSymbols();
     const data = await fetchCoinalyzeBatchHistory("funding-rate-history", symbols, apiKey);
     
     if (!data || data.length === 0) {
@@ -269,8 +263,8 @@ async function fetchOIHistory(apiKey) {
   if (!apiKey) return await fetchOIFallback(null);
   
   try {
-    await sleep(20000); // Wait 20s for rate limit recovery (40 calls/min window)
-    const symbols = await getCachedCoinalyzeBtcSymbols(apiKey);
+    await sleep(5000); // Wait 5s between endpoints (8 symbols × 3 endpoints = 24 calls, within 40/min limit)
+    const symbols = getCachedCoinalyzeBtcSymbols();
     const data = await fetchCoinalyzeBatchHistory("open-interest-history", symbols, apiKey, {
       convert_to_usd: "true",
     });
@@ -354,8 +348,8 @@ async function fetchLiquidationHistory(apiKey) {
   if (!apiKey) return await fetchLiquidationFallback();
   
   try {
-    await sleep(20000); // Wait 20s for rate limit recovery (40 calls/min window)
-    const symbols = await getCachedCoinalyzeBtcSymbols(apiKey);
+    await sleep(5000); // Wait 5s between endpoints (8 symbols × 3 endpoints = 24 calls, within 40/min limit)
+    const symbols = getCachedCoinalyzeBtcSymbols();
     const data = await fetchCoinalyzeBatchHistory("liquidation-history", symbols, apiKey, {
       convert_to_usd: "true",
     });
