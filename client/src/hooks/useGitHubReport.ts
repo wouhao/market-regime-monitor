@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 // GitHub Pages base URL - 通过环境变量配置
 const GITHUB_PAGES_BASE_URL =
   import.meta.env.VITE_GITHUB_PAGES_URL ||
-  "https://wouhao.github.io/market-regime-monitor/reports";
+  "https://wouhao.github.io/market-regime-monitor/docs/reports";
 
 // 报告数据类型定义
 export interface MarketSnapshot {

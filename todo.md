@@ -304,5 +304,8 @@
 - [x] 测试验证完整数据流 (91个测试通过)
 - [x] 配置 GitHub Pages URL 环境变量
 - [x] 启用 GitHub Pages (/docs 目录)
-- [ ] 配置 GitHub Actions Secrets (FRED_API_KEY 等)
-- [ ] 手动触发第一次 GitHub Actions 生成报告
+- [x] 配置 GitHub Actions Secrets (FRED_API_KEY 等)
+- [x] 手动触发第一次 GitHub Actions 生成报告
+
+## Bug修复 (2026-02-28 - GitHub Pages URL路径错误)
+- [x] 修复 VITE_GITHUB_PAGES_URL 路径：GitHub Pages从根目录/提供服务，JSON文件在docs/reports/，需要在URL中包含/docs
