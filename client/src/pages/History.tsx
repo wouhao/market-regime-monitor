@@ -1,17 +1,13 @@
-import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { 
   Calendar,
   ChevronRight,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  FileText
 } from "lucide-react";
 import { useLocation } from "wouter";
+import { useReportIndex, useReportHistory, type MarketReport } from "@/hooks/useGitHubReport";
+import { useState, useEffect, useMemo } from "react";
 
 const regimeConfig = {
   risk_on: { label: "Risk-On", emoji: "🟢", color: "text-green-400" },
@@ -21,13 +17,22 @@ const regimeConfig = {
 
 export default function History() {
   const [, setLocation] = useLocation();
-  const { data, isLoading } = trpc.market.getHistory.useQuery({ limit: 30 });
+  
+  // 从 GitHub Pages 获取报告日期列表
+  const { data: indexData, isLoading: indexLoading } = useReportIndex();
+  
+  // 获取最近 30 个日期的报告
+  const dates = useMemo(() => {
+    return (indexData?.dates || []).slice(0, 30);
+  }, [indexData]);
+  
+  const { data: reports, isLoading: reportsLoading } = useReportHistory(dates);
+  
+  const isLoading = indexLoading || reportsLoading;
 
   if (isLoading) {
     return <HistorySkeleton />;
   }
-
-  const reports = data?.data || [];
 
   return (
     <div className="space-y-6">
@@ -44,36 +49,36 @@ export default function History() {
             <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">暂无历史报告</h3>
             <p className="text-muted-foreground text-center">
-              生成报告后将在此处显示历史记录
+              等待 GitHub Actions 自动生成报告后将在此处显示历史记录
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
           {reports.map((report) => {
-            const regime = regimeConfig[report.regime as keyof typeof regimeConfig];
+            const regime = regimeConfig[report.regime.regime as keyof typeof regimeConfig];
             return (
               <Card 
-                key={report.id}
+                key={report.date}
                 className="hover:bg-muted/50 transition-colors cursor-pointer"
-                onClick={() => setLocation(`/report/${report.id}`)}
+                onClick={() => setLocation(`/report/${report.date}`)}
               >
                 <CardContent className="flex items-center justify-between py-4">
                   <div className="flex items-center gap-4">
                     <div className="text-3xl">{regime?.emoji}</div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{report.reportDate}</span>
-                        <Badge variant={report.status === "confirmed" ? "default" : "secondary"}>
-                          {report.status === "confirmed" ? "已确认" : "观察中"}
+                        <span className="font-medium">{report.date}</span>
+                        <Badge variant={report.regime.status === "confirmed" ? "default" : "secondary"}>
+                          {report.regime.status === "confirmed" ? "已确认" : "观察中"}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                         <span className={regime?.color}>
                           {regime?.label}
                         </span>
-                        <span>置信度 {Number(report.confidence).toFixed(0)}%</span>
-                        <span>数据质量 {Number(report.dataQuality).toFixed(0)}%</span>
+                        <span>置信度 {Number(report.regime.confidence).toFixed(0)}%</span>
+                        <span>数据质量 {report.dataQuality.score}%</span>
                       </div>
                     </div>
                   </div>
@@ -94,7 +99,7 @@ export default function History() {
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-3">
               {Object.entries(regimeConfig).map(([key, config]) => {
-                const count = reports.filter(r => r.regime === key).length;
+                const count = reports.filter(r => r.regime.regime === key).length;
                 const percentage = ((count / reports.length) * 100).toFixed(0);
                 return (
                   <div 

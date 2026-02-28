@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, reportDate, regime, status, CAST(createdAt AS CHAR) as created FROM market_reports ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 27CBZT3mymvjs8P.8b4adb63d759 --database RCAAgyfAbmLvwm7QCEFmbs --execute SELECT id, reportDate, regime, status, CAST(createdAt AS CHAR) as created FROM market_reports ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "330001",
+      "reportDate": "2026-02-20",
+      "regime": "risk_on",
+      "status": "confirmed",
+      "created": "2026-02-20 07:18:30"
+    },
+    {
+      "id": "300001",
+      "reportDate": "2026-02-13",
+      "regime": "risk_on",
+      "status": "watch",
+      "created": "2026-02-13 03:04:22"
+    },
+    {
+      "id": "270001",
+      "reportDate": "2026-02-09",
+      "regime": "risk_off",
+      "status": "watch",
+      "created": "2026-02-09 14:32:45"
+    },
+    {
+      "id": "240001",
+      "reportDate": "2026-02-05",
+      "regime": "base",
+      "status": "watch",
+      "created": "2026-02-05 05:53:33"
+    },
+    {
+      "id": "210001",
+      "reportDate": "2026-02-03",
+      "regime": "risk_on",
+      "status": "watch",
+      "created": "2026-02-03 06:36:22"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\treportDate\tregime\tstatus\tcreated\n330001\t2026-02-20\trisk_on\tconfirmed\t2026-02-20 07:18:30\n300001\t2026-02-13\trisk_on\twatch\t2026-02-13 03:04:22\n270001\t2026-02-09\trisk_off\twatch\t2026-02-09 14:32:45\n240001\t2026-02-05\tbase\twatch\t2026-02-05 05:53:33\n210001\t2026-02-03\trisk_on\twatch\t2026-02-03 06:36:22\n",
+  "stderr": "",
+  "execution_time_ms": 1522
+}

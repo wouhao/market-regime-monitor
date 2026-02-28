@@ -31,7 +31,7 @@ export default function Settings() {
       </div>
 
       <ApiConfigSection />
-      <ScheduleSection />
+      <GitHubActionsSection />
     </div>
   );
 }
@@ -247,54 +247,7 @@ function ApiConfigSection() {
   );
 }
 
-function ScheduleSection() {
-  const { data, isLoading, refetch } = trpc.settings.getSchedule.useQuery();
-  const updateMutation = trpc.settings.updateSchedule.useMutation();
-
-  const [time, setTime] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!time) {
-      toast.error("请选择时间");
-      return;
-    }
-    setSaving(true);
-    try {
-      await updateMutation.mutateAsync({ scheduledTime: time });
-      toast.success("定时任务已更新");
-      refetch();
-    } catch (error) {
-      toast.error("更新失败");
-    }
-    setSaving(false);
-  };
-
-  const handleToggle = async (enabled: boolean) => {
-    try {
-      await updateMutation.mutateAsync({ isEnabled: enabled });
-      toast.success(enabled ? "定时任务已启用" : "定时任务已禁用");
-      refetch();
-    } catch (error) {
-      toast.error("更新失败");
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-4 w-64" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-24" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const schedule = data?.data;
+function GitHubActionsSection() {
 
   return (
     <Card>
@@ -304,40 +257,25 @@ function ScheduleSection() {
           定时任务
         </CardTitle>
         <CardDescription>
-          配置每日自动生成报告的时间
+          数据通过 GitHub Actions 自动采集
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center justify-between">
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+          <CheckCircle className="h-5 w-5 text-green-400 shrink-0" />
           <div>
-            <Label className="text-base font-medium">启用定时任务</Label>
+            <div className="font-medium text-green-400">GitHub Actions 已配置</div>
             <p className="text-sm text-muted-foreground mt-1">
-              每天自动生成市场状态报告
+              每天北京时间 09:00 自动运行数据采集脚本，生成 JSON 报告并推送到 GitHub Pages。
             </p>
           </div>
-          <Switch
-            checked={schedule?.isEnabled}
-            onCheckedChange={handleToggle}
-          />
         </div>
-
-        <div className="space-y-3">
-          <Label>执行时间（北京时间）</Label>
-          <div className="flex gap-2">
-            <Input
-              type="time"
-              defaultValue={schedule?.scheduledTime || "09:00"}
-              onChange={(e) => setTime(e.target.value)}
-              className="w-40"
-            />
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              保存
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            当前设置: 每天 {schedule?.scheduledTime || "09:00"} (Asia/Shanghai)
-          </p>
+        <div className="text-sm text-muted-foreground space-y-2">
+          <p>如需修改定时任务配置，请编辑 GitHub 仓库中的：</p>
+          <code className="block p-2 rounded bg-muted text-xs">
+            .github/workflows/daily-report.yml
+          </code>
+          <p>如需手动触发，可在 GitHub Actions 页面点击 "Run workflow"。</p>
         </div>
       </CardContent>
     </Card>

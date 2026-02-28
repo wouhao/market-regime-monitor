@@ -291,3 +291,18 @@
 - [x] 重写parseAIResponse函数，用split分隔符解析
 - [x] 保留旧格式兼容逻辑（fallback）
 - [x] 88个测试全部通过
+
+## 架构改造 (2026-02-28 - GitHub Actions + GitHub Pages)
+- [x] 梳理当前代码结构，确定迁移范围
+- [x] 创建独立数据采集脚本 generate-report.mjs
+- [x] 创建 GitHub Actions workflow (daily-report.yml)
+- [x] 创建 docs 目录结构和 index.json
+- [x] 改造前端 Dashboard.tsx: fetch GitHub Pages JSON
+- [x] 改造前端 History.tsx: fetch GitHub Pages JSON
+- [x] 改造前端 ReportDetail.tsx: fetch GitHub Pages JSON
+- [x] 精简后端 routers.ts: 保留 AI 分析和配置管理
+- [x] 测试验证完整数据流 (91个测试通过)
+- [x] 配置 GitHub Pages URL 环境变量
+- [x] 启用 GitHub Pages (/docs 目录)
+- [ ] 配置 GitHub Actions Secrets (FRED_API_KEY 等)
+- [ ] 手动触发第一次 GitHub Actions 生成报告
