@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+
 /**
  * Market Regime Monitor - 独立数据采集脚本
  * 运行环境: GitHub Actions Runner (Node.js 20+)
@@ -6,7 +6,7 @@
  * 
  * 环境变量:
  *   FRED_API_KEY       - FRED 经济数据 API Key (必须)
- *   COINALYZE_API_KEY  - Coinalyze 清算数据 API Key (可选)
+ *   COINALYZE_API_KEY  - Coinalyze 加密数据 API Key (推荐)
  *   COINGLASS_API_KEY  - CoinGlass OI 数据 API Key (可选)
  */
 
@@ -28,10 +28,10 @@ const INDICATORS_CONFIG = [
   { indicator: "DGS10", displayName: "10Y Treasury", source: "fred" },
   { indicator: "DFII10", displayName: "10Y Real Yield", source: "fred" },
   { indicator: "BAMLH0A0HYM2", displayName: "HY OAS", source: "fred" },
-  { indicator: "crypto_funding", displayName: "BTC Funding Rate", source: "binance" },
-  { indicator: "crypto_oi", displayName: "BTC Open Interest", source: "coinalyze_oi" },
-  { indicator: "crypto_liquidations", displayName: "BTC Liquidations (24h)", source: "coinalyze" },
-  { indicator: "stablecoin", displayName: "Stablecoin Supply (USDT+USDC)", source: "defillama" },
+  { indicator: "crypto_funding", displayName: "BTC Funding Rate", source: "crypto_funding" },
+  { indicator: "crypto_oi", displayName: "BTC Open Interest", source: "crypto_oi" },
+  { indicator: "crypto_liquidations", displayName: "BTC Liquidations (24h)", source: "crypto_liquidations" },
+  { indicator: "stablecoin", displayName: "Stablecoin Supply (USDT+USDC)", source: "stablecoin_history" },
 ];
 
 const RULES = {
@@ -83,6 +83,10 @@ async function fetchText(url, options = {}) {
   }
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 // ============ 数据获取函数 ============
 
 async function fetchYahooData(symbol) {
@@ -121,212 +125,265 @@ async function fetchFredData(seriesId, apiKey) {
   }
 }
 
-async function fetchFromBinance(dataType) {
+// ============ Coinalyze 辅助函数 ============
+
+/**
+ * 获取所有 BTC 永续合约的 symbol 列表
+ */
+async function getCoinalyzeBtcSymbols(apiKey) {
   try {
-    const baseUrl = "https://fapi.binance.com";
-    if (dataType === "funding") {
-      const url = `${baseUrl}/fapi/v1/fundingRate?symbol=BTCUSDT&limit=1`;
-      const data = await fetchJson(url, { timeout: 8000 });
-      if (data && data.length > 0) {
-        const rate = parseFloat(data[0].fundingRate);
-        return isNaN(rate) ? null : rate * 100;
-      }
-    } else if (dataType === "oi") {
-      const url = `${baseUrl}/fapi/v1/openInterest?symbol=BTCUSDT`;
-      const data = await fetchJson(url, { timeout: 8000 });
-      if (data?.openInterest) {
-        const oi = parseFloat(data.openInterest);
-        const priceData = await fetchJson(`${baseUrl}/fapi/v1/ticker/price?symbol=BTCUSDT`, { timeout: 5000 });
-        const price = parseFloat(priceData?.price || "0");
-        const oiUsd = oi * price;
-        return isNaN(oiUsd) ? null : oiUsd;
-      }
+    const data = await fetchJson("https://api.coinalyze.net/v1/future-markets", {
+      headers: { api_key: apiKey },
+      timeout: 15000,
+    });
+    if (Array.isArray(data)) {
+      const symbols = data
+        .filter((m) => m.base_asset === "BTC" && m.is_perpetual === true && m.symbol)
+        .map((m) => m.symbol);
+      console.log(`[Coinalyze] Found ${symbols.length} BTC perpetual contracts`);
+      return symbols;
     }
-    return null;
-  } catch (error) {
-    console.error(`[Binance] Failed to fetch ${dataType}:`, error.message);
-    return null;
+  } catch (e) {
+    console.warn(`[Coinalyze] Failed to fetch markets, using defaults`);
   }
+  return ["BTCUSDT_PERP.A", "BTCUSDT_PERP.6", "BTCUSDT_PERP.4", "BTCUSDT_PERP.7", "BTCUSD_PERP.A", "BTCUSD_PERP.2"];
 }
 
-async function fetchFromOKX(dataType) {
-  try {
-    const baseUrl = "https://www.okx.com";
-    if (dataType === "funding") {
-      const url = `${baseUrl}/api/v5/public/funding-rate?instId=BTC-USDT-SWAP`;
-      const data = await fetchJson(url, { timeout: 8000 });
-      if (data?.data && data.data.length > 0) {
-        const rate = parseFloat(data.data[0].fundingRate);
-        return isNaN(rate) ? null : rate * 100;
-      }
-    } else if (dataType === "oi") {
-      const url = `${baseUrl}/api/v5/public/open-interest?instType=SWAP&instId=BTC-USDT-SWAP`;
-      const data = await fetchJson(url, { timeout: 8000 });
-      if (data?.data && data.data.length > 0) {
-        const oi = parseFloat(data.data[0].oi);
-        const priceData = await fetchJson(`${baseUrl}/api/v5/market/ticker?instId=BTC-USDT-SWAP`, { timeout: 5000 });
-        const price = parseFloat(priceData?.data?.[0]?.last || "0");
-        const oiUsd = oi * price;
-        return isNaN(oiUsd) ? null : oiUsd;
-      }
-    }
-    return null;
-  } catch (error) {
-    console.error(`[OKX] Failed to fetch ${dataType}:`, error.message);
-    return null;
-  }
-}
+/**
+ * 批量请求 Coinalyze 历史数据端点
+ * @param {string} endpoint - API endpoint (e.g., "open-interest-history")
+ * @param {string[]} symbols - Symbol list
+ * @param {string} apiKey - API key
+ * @param {object} extraParams - Extra query params
+ * @returns {Array} - Array of {symbol, history} objects
+ */
+async function fetchCoinalyzeBatchHistory(endpoint, symbols, apiKey, extraParams = {}) {
+  const batchSize = 20;
+  const now = Math.floor(Date.now() / 1000);
+  const from = now - 65 * 24 * 60 * 60; // 65 days back for safety
+  const results = [];
 
-async function fetchBinanceData(dataType) {
-  const result = await fetchFromBinance(dataType);
-  if (result !== null) return result;
-  console.log(`[Crypto] Binance failed for ${dataType}, trying OKX...`);
-  return await fetchFromOKX(dataType);
-}
-
-async function fetchCoinGlassOI(apiKey) {
-  try {
-    const endTime = Date.now();
-    const startTime = endTime - 2 * 24 * 60 * 60 * 1000;
-    const url = `https://open-api-v4.coinglass.com/api/futures/open-interest/aggregated-history?symbol=BTC&interval=1d&start_time=${startTime}&end_time=${endTime}`;
-    const data = await fetchJson(url, { headers: { accept: "application/json", "CG-API-KEY": apiKey } });
-    if (data?.code === "0" && data?.data?.length > 0) {
-      const latest = data.data[data.data.length - 1];
-      const oiUsd = typeof latest.close === "string" ? parseFloat(latest.close) : latest.close;
-      console.log(`[CoinGlass] Aggregated OI: $${(oiUsd / 1e9).toFixed(2)}B`);
-      return isNaN(oiUsd) ? null : oiUsd;
-    }
-    return null;
-  } catch (error) {
-    console.error(`[CoinGlass] Failed:`, error.message);
-    return null;
-  }
-}
-
-async function fetchCoinalyzeOI(apiKey) {
-  try {
-    const baseUrl = "https://api.coinalyze.net/v1";
-    // Get all BTC perpetual markets
-    let btcSymbols = [];
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batch = symbols.slice(i, i + batchSize).join(",");
+    const params = new URLSearchParams({
+      symbols: batch,
+      interval: "daily",
+      from: String(from),
+      to: String(now),
+      ...extraParams,
+    });
+    const url = `https://api.coinalyze.net/v1/${endpoint}?${params}`;
     try {
-      const marketsData = await fetchJson(`${baseUrl}/future-markets`, { headers: { api_key: apiKey } });
-      if (Array.isArray(marketsData)) {
-        btcSymbols = marketsData
-          .filter((m) => m.base_asset === "BTC" && m.is_perpetual === true && m.symbol)
-          .map((m) => m.symbol);
+      const data = await fetchJson(url, { headers: { api_key: apiKey }, timeout: 15000 });
+      if (Array.isArray(data)) results.push(...data);
+    } catch (e) {
+      console.warn(`[Coinalyze] Batch ${endpoint} failed, continuing...`);
+    }
+    if (i + batchSize < symbols.length) await sleep(1500); // Rate limit: 40/min
+  }
+  return results;
+}
+
+// ============ Crypto 数据获取 (Coinalyze 优先) ============
+
+/**
+ * 获取 BTC Funding Rate 历史数据 (60天)
+ * Coinalyze funding-rate-history 返回 candlestick_fr: {t, o, h, l, c}
+ * 值已经是 % 格式 (如 0.01 = 0.01%)
+ */
+async function fetchFundingRateHistory(apiKey) {
+  if (!apiKey) return await fetchFundingRateFallback();
+  
+  try {
+    const symbols = await getCoinalyzeBtcSymbols(apiKey);
+    const data = await fetchCoinalyzeBatchHistory("funding-rate-history", symbols, apiKey);
+    
+    if (!data || data.length === 0) {
+      console.warn("[Funding] No Coinalyze data, falling back...");
+      return await fetchFundingRateFallback();
+    }
+
+    // Aggregate: for each day, average the close funding rate across all exchanges
+    const dayMap = new Map(); // timestamp -> { sum, count }
+    for (const ex of data) {
+      for (const point of ex.history || []) {
+        const key = point.t;
+        if (!dayMap.has(key)) dayMap.set(key, { sum: 0, count: 0 });
+        const entry = dayMap.get(key);
+        entry.sum += point.c; // close funding rate (already in %)
+        entry.count += 1;
+      }
+    }
+
+    // Sort by timestamp and build prices array
+    const sorted = [...dayMap.entries()].sort((a, b) => a[0] - b[0]);
+    const prices = sorted.map(([, v]) => v.sum / v.count);
+    const latest = prices.length > 0 ? prices[prices.length - 1] : null;
+
+    console.log(`[Funding] Coinalyze: ${prices.length} days, latest: ${latest?.toFixed(4)}%`);
+    return { prices, latest, source: "Coinalyze" };
+  } catch (error) {
+    console.error("[Funding] Coinalyze failed:", error.message);
+    return await fetchFundingRateFallback();
+  }
+}
+
+async function fetchFundingRateFallback() {
+  // Try OKX funding rate (single value)
+  try {
+    const url = "https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USDT-SWAP";
+    const data = await fetchJson(url, { timeout: 8000 });
+    if (data?.data?.[0]?.fundingRate) {
+      // OKX returns decimal (e.g., 0.0001 = 0.01%), multiply by 100 to get %
+      const rate = parseFloat(data.data[0].fundingRate) * 100;
+      console.log(`[Funding] OKX fallback: ${rate.toFixed(4)}%`);
+      return { prices: [], latest: isNaN(rate) ? null : rate, source: "OKX" };
+    }
+  } catch (e) {
+    console.error("[Funding] OKX fallback failed:", e.message);
+  }
+  return { prices: [], latest: null, source: null };
+}
+
+/**
+ * 获取 BTC Open Interest 历史数据 (60天)
+ * Coinalyze open-interest-history 返回 candlestick_oi: {t, o, h, l, c}
+ * convert_to_usd=true 将值转为 USD
+ */
+async function fetchOIHistory(apiKey) {
+  if (!apiKey) return await fetchOIFallback(null);
+  
+  try {
+    const symbols = await getCoinalyzeBtcSymbols(apiKey);
+    const data = await fetchCoinalyzeBatchHistory("open-interest-history", symbols, apiKey, {
+      convert_to_usd: "true",
+    });
+    
+    if (!data || data.length === 0) {
+      console.warn("[OI] No Coinalyze data, falling back...");
+      return await fetchOIFallback(null);
+    }
+
+    // Aggregate: for each day, sum the close OI across all exchanges
+    const dayMap = new Map(); // timestamp -> total OI
+    for (const ex of data) {
+      for (const point of ex.history || []) {
+        const key = point.t;
+        if (!dayMap.has(key)) dayMap.set(key, 0);
+        dayMap.set(key, dayMap.get(key) + (point.c || 0));
+      }
+    }
+
+    const sorted = [...dayMap.entries()].sort((a, b) => a[0] - b[0]);
+    const prices = sorted.map(([, v]) => v);
+    const latest = prices.length > 0 ? prices[prices.length - 1] : null;
+
+    console.log(`[OI] Coinalyze: ${prices.length} days, latest: $${latest ? (latest / 1e9).toFixed(2) : 0}B`);
+    return { prices, latest, source: "Coinalyze" };
+  } catch (error) {
+    console.error("[OI] Coinalyze failed:", error.message);
+    return await fetchOIFallback(null);
+  }
+}
+
+async function fetchOIFallback(coinglassKey) {
+  // Try CoinGlass
+  if (coinglassKey) {
+    try {
+      const endTime = Date.now();
+      const startTime = endTime - 2 * 24 * 60 * 60 * 1000;
+      const url = `https://open-api-v4.coinglass.com/api/futures/open-interest/aggregated-history?symbol=BTC&interval=1d&start_time=${startTime}&end_time=${endTime}`;
+      const data = await fetchJson(url, { headers: { accept: "application/json", "CG-API-KEY": coinglassKey } });
+      if (data?.code === "0" && data?.data?.length > 0) {
+        const latest = data.data[data.data.length - 1];
+        const oiUsd = typeof latest.close === "string" ? parseFloat(latest.close) : latest.close;
+        console.log(`[OI] CoinGlass fallback: $${(oiUsd / 1e9).toFixed(2)}B`);
+        return { prices: [], latest: isNaN(oiUsd) ? null : oiUsd, source: "CoinGlass" };
       }
     } catch (e) {
-      console.warn(`[Coinalyze OI] Failed to fetch markets`);
+      console.error("[OI] CoinGlass fallback failed:", e.message);
     }
-
-    if (btcSymbols.length === 0) {
-      btcSymbols = ["BTCUSDT_PERP.A", "BTCUSDT_PERP.6", "BTCUSDT_PERP.4", "BTCUSDT_PERP.7", "BTCUSD_PERP.A", "BTCUSD_PERP.2"];
-    }
-
-    // Fetch OI for all symbols in batches
-    const batchSize = 20;
-    const now = Math.floor(Date.now() / 1000);
-    const from = now - 2 * 24 * 60 * 60; // 2 days back
-    let totalOiUsd = 0;
-
-    for (let i = 0; i < btcSymbols.length; i += batchSize) {
-      const batch = btcSymbols.slice(i, i + batchSize).join(",");
-      const url = `${baseUrl}/open-interest-history?symbols=${batch}&interval=daily&convert_to_usd=true&from=${from}&to=${now}`;
-      try {
-        const data = await fetchJson(url, { headers: { api_key: apiKey }, timeout: 15000 });
-        if (Array.isArray(data)) {
-          for (const ex of data) {
-            const history = ex.history || [];
-            if (history.length > 0) {
-              // Get the latest data point
-              const latest = history[history.length - 1];
-              // OI fields: o=open, h=high, l=low, c=close
-              totalOiUsd += latest.c || latest.o || 0;
-            }
-          }
-        }
-      } catch (e) {
-        console.warn(`[Coinalyze OI] Batch failed, continuing...`);
-      }
-      if (i + batchSize < btcSymbols.length) await new Promise((r) => setTimeout(r, 500));
-    }
-
-    if (totalOiUsd > 0) {
-      console.log(`[Coinalyze OI] Aggregated BTC OI: $${(totalOiUsd / 1e9).toFixed(2)}B`);
-      return totalOiUsd;
-    }
-    return null;
-  } catch (error) {
-    console.error(`[Coinalyze OI] Failed:`, error.message);
-    return null;
   }
-}
-
-async function fetchCoinalyzeLiquidations(apiKey) {
+  // Try OKX
   try {
-    const baseUrl = "https://api.coinalyze.net/v1";
-    const requestTime = new Date().toISOString();
+    const url = "https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=BTC-USDT-SWAP";
+    const data = await fetchJson(url, { timeout: 8000 });
+    if (data?.data?.[0]?.oi) {
+      const oi = parseFloat(data.data[0].oi);
+      const priceData = await fetchJson("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT-SWAP", { timeout: 5000 });
+      const price = parseFloat(priceData?.data?.[0]?.last || "0");
+      const oiUsd = oi * price;
+      console.log(`[OI] OKX fallback: $${(oiUsd / 1e9).toFixed(2)}B`);
+      return { prices: [], latest: isNaN(oiUsd) ? null : oiUsd, source: "OKX" };
+    }
+  } catch (e) {
+    console.error("[OI] OKX fallback failed:", e.message);
+  }
+  return { prices: [], latest: null, source: null };
+}
 
-    // Step 1: Get all BTC perpetual markets
-    let btcSymbols = [];
-    try {
-      const marketsData = await fetchJson(`${baseUrl}/future-markets`, { headers: { api_key: apiKey } });
-      if (Array.isArray(marketsData)) {
-        btcSymbols = marketsData
-          .filter((m) => m.base_asset === "BTC" && m.is_perpetual === true && m.symbol)
-          .map((m) => m.symbol);
-        console.log(`[Coinalyze] Found ${btcSymbols.length} BTC perpetual contracts`);
+/**
+ * 获取 BTC Liquidation 历史数据 (60天)
+ * Coinalyze liquidation-history 返回: {t, l (longs), s (shorts)}
+ * convert_to_usd=true 将值转为 USD
+ */
+async function fetchLiquidationHistory(apiKey) {
+  if (!apiKey) return await fetchLiquidationFallback();
+  
+  try {
+    const symbols = await getCoinalyzeBtcSymbols(apiKey);
+    const data = await fetchCoinalyzeBatchHistory("liquidation-history", symbols, apiKey, {
+      convert_to_usd: "true",
+    });
+    
+    if (!data || data.length === 0) {
+      console.warn("[Liq] No Coinalyze data, falling back...");
+      return await fetchLiquidationFallback();
+    }
+
+    // Aggregate: for each day, sum long+short liquidations across all exchanges
+    const dayMap = new Map(); // timestamp -> { long, short }
+    for (const ex of data) {
+      for (const point of ex.history || []) {
+        const key = point.t;
+        if (!dayMap.has(key)) dayMap.set(key, { long: 0, short: 0 });
+        const entry = dayMap.get(key);
+        entry.long += point.l || 0;  // l = longs liquidation volume
+        entry.short += point.s || 0; // s = shorts liquidation volume
       }
-    } catch (e) {
-      console.warn(`[Coinalyze] Failed to fetch markets, using defaults`);
     }
 
-    if (btcSymbols.length === 0) {
-      btcSymbols = ["BTCUSDT_PERP.A", "BTCUSDT_PERP.6", "BTCUSDT_PERP.4", "BTCUSDT_PERP.7", "BTCUSD_PERP.A", "BTCUSD_PERP.2"];
-    }
+    const sorted = [...dayMap.entries()].sort((a, b) => a[0] - b[0]);
+    // prices = total daily liquidation (long + short)
+    const prices = sorted.map(([, v]) => v.long + v.short);
+    const latest = prices.length > 0 ? prices[prices.length - 1] : null;
 
-    const batchSize = 20;
-    const now = Math.floor(Date.now() / 1000);
-    const from = now - 48 * 60 * 60;
-    const now24hAgo = now - 24 * 60 * 60;
-    const now7dAgo = now - 7 * 24 * 60 * 60;
+    // Calculate 24h and 7d totals from the latest data
+    const latestEntry = sorted.length > 0 ? sorted[sorted.length - 1] : null;
+    const total24h = latestEntry ? latestEntry[1].long + latestEntry[1].short : 0;
+    const long24h = latestEntry ? latestEntry[1].long : 0;
+    const short24h = latestEntry ? latestEntry[1].short : 0;
+    const total7d = sorted.slice(-7).reduce((sum, [, v]) => sum + v.long + v.short, 0);
 
-    let long24h = 0, short24h = 0, total7d = 0;
-
-    for (let i = 0; i < btcSymbols.length; i += batchSize) {
-      const batch = btcSymbols.slice(i, i + batchSize).join(",");
-      const url = `${baseUrl}/liquidation-history?symbols=${batch}&interval=1hour&convert_to_usd=true&from=${from}&to=${now}`;
-      try {
-        const data = await fetchJson(url, { headers: { api_key: apiKey }, timeout: 15000 });
-        if (Array.isArray(data)) {
-          for (const ex of data) {
-            for (const point of ex.history || []) {
-              if (point.t >= now7dAgo) {
-                total7d += (point.l || 0) + (point.s || 0);
-                if (point.t >= now24hAgo) {
-                  long24h += point.l || 0;
-                  short24h += point.s || 0;
-                }
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.warn(`[Coinalyze] Batch failed, continuing...`);
-      }
-      if (i + batchSize < btcSymbols.length) await new Promise((r) => setTimeout(r, 500));
-    }
-
-    const total24h = long24h + short24h;
-    console.log(`[Coinalyze] 24h: $${total24h.toLocaleString()}, 7D: $${total7d.toLocaleString()}`);
-    return { total24h, long24h, short24h, total7d, requestTime, source: "Coinalyze" };
+    console.log(`[Liq] Coinalyze: ${prices.length} days, 24h: $${(total24h / 1e6).toFixed(1)}M, 7D: $${(total7d / 1e6).toFixed(1)}M`);
+    return {
+      prices,
+      latest: total24h, // Use today's total as the latest value
+      source: "Coinalyze",
+      liquidationDetail: {
+        total24h, long24h, short24h, total7d,
+        requestTime: new Date().toISOString(),
+        source: "Coinalyze",
+      },
+    };
   } catch (error) {
-    console.error(`[Coinalyze] Failed:`, error.message);
-    return null;
+    console.error("[Liq] Coinalyze failed:", error.message);
+    return await fetchLiquidationFallback();
   }
 }
 
-async function fetchOKXLiquidations() {
+async function fetchLiquidationFallback() {
+  // Try OKX liquidation orders
   try {
     const baseUrl = "https://www.okx.com";
     const requestTime = new Date().toISOString();
@@ -372,27 +429,76 @@ async function fetchOKXLiquidations() {
     }
 
     const total24h = long24h + short24h;
-    console.log(`[OKX Liq] 24h: $${total24h.toLocaleString()}, 7D: $${total7d.toLocaleString()}`);
-    return { total24h, long24h, short24h, total7d, requestTime, source: "OKX" };
+    console.log(`[Liq] OKX fallback: 24h: $${(total24h / 1e6).toFixed(1)}M`);
+    return {
+      prices: [],
+      latest: total24h,
+      source: "OKX",
+      liquidationDetail: { total24h, long24h, short24h, total7d, requestTime, source: "OKX" },
+    };
   } catch (error) {
-    console.error(`[OKX Liq] Failed:`, error.message);
-    return null;
+    console.error("[Liq] OKX fallback failed:", error.message);
+    return { prices: [], latest: null, source: null, liquidationDetail: null };
   }
 }
 
-async function fetchDefiLlamaData() {
+/**
+ * 获取 Stablecoin Supply 历史数据 (60天)
+ * DefiLlama stablecoincharts API: USDT (id=1) + USDC (id=2)
+ */
+async function fetchStablecoinHistory() {
   try {
-    const url = "https://stablecoins.llama.fi/stablecoins?includePrices=false";
-    const data = await fetchJson(url);
+    // Fetch USDT and USDC historical data in parallel
+    const [usdtData, usdcData] = await Promise.all([
+      fetchJson("https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=1", { timeout: 15000 }),
+      fetchJson("https://stablecoins.llama.fi/stablecoincharts/all?stablecoin=2", { timeout: 15000 }),
+    ]);
+
+    if (!Array.isArray(usdtData) || !Array.isArray(usdcData)) {
+      console.warn("[Stablecoin] Invalid response, falling back to current-only...");
+      return await fetchStablecoinFallback();
+    }
+
+    // Build a map of date -> USDT supply
+    const usdtMap = new Map();
+    for (const point of usdtData) {
+      usdtMap.set(point.date, point.totalCirculatingUSD?.peggedUSD || point.totalCirculating?.peggedUSD || 0);
+    }
+
+    // Build combined supply array (last 65 days)
+    const cutoff = Math.floor(Date.now() / 1000) - 65 * 24 * 60 * 60;
+    const combined = [];
+    for (const point of usdcData) {
+      if (parseInt(point.date) < cutoff) continue;
+      const usdcSupply = point.totalCirculatingUSD?.peggedUSD || point.totalCirculating?.peggedUSD || 0;
+      const usdtSupply = usdtMap.get(point.date) || 0;
+      combined.push({ date: parseInt(point.date), total: usdtSupply + usdcSupply });
+    }
+
+    combined.sort((a, b) => a.date - b.date);
+    const prices = combined.map((p) => p.total);
+    const latest = prices.length > 0 ? prices[prices.length - 1] : null;
+
+    console.log(`[Stablecoin] DefiLlama history: ${prices.length} days, latest: $${latest ? (latest / 1e9).toFixed(2) : 0}B`);
+    return { prices, latest, source: "DefiLlama" };
+  } catch (error) {
+    console.error("[Stablecoin] History failed:", error.message);
+    return await fetchStablecoinFallback();
+  }
+}
+
+async function fetchStablecoinFallback() {
+  try {
+    const data = await fetchJson("https://stablecoins.llama.fi/stablecoins?includePrices=false");
     const stablecoins = data?.peggedAssets || [];
     const usdt = stablecoins.find((c) => c.symbol === "USDT");
     const usdc = stablecoins.find((c) => c.symbol === "USDC");
     const total = (usdt?.circulating?.peggedUSD || 0) + (usdc?.circulating?.peggedUSD || 0);
-    console.log(`[DefiLlama] Stablecoin Supply: $${(total / 1e9).toFixed(2)}B`);
-    return total;
+    console.log(`[Stablecoin] Fallback: $${(total / 1e9).toFixed(2)}B`);
+    return { prices: [], latest: total, source: "DefiLlama" };
   } catch (error) {
-    console.error("[DefiLlama] Failed:", error.message);
-    return null;
+    console.error("[Stablecoin] Fallback failed:", error.message);
+    return { prices: [], latest: null, source: null };
   }
 }
 
@@ -578,7 +684,6 @@ function analyzeBtcMarket(snapshots, etfFlowData) {
     const latest = sorted[sorted.length - 1];
     etfFlowToday = latest.total;
     etfFlowAsOfDate = latest.date;
-    // Calculate rolling averages
     const last5 = sorted.slice(-5).filter((d) => d.total !== null);
     const last20 = sorted.slice(-20).filter((d) => d.total !== null);
     if (last5.length >= 3) etfFlowRolling5d = last5.reduce((s, d) => s + d.total, 0) / last5.length;
@@ -587,7 +692,6 @@ function analyzeBtcMarket(snapshots, etfFlowData) {
 
   const etfTag = classifyEtfFlowTag(etfFlowRolling5d, etfFlowRolling20d);
 
-  // Build evidence
   const evidence = {
     price: {
       latest: btc?.latestValue ?? null,
@@ -624,12 +728,12 @@ function analyzeBtcMarket(snapshots, etfFlowData) {
   const oiExpanding = oi?.change7d !== null && oi.change7d > 5;
   const oiContracting = oi?.change7d !== null && oi.change7d < -5;
 
-  let state = "S2"; // default: correction
+  let state = "S2";
   let liquidityTag = "Unknown";
   const stateReasons = [];
 
   if (priceTrendUp && oiExpanding) {
-    state = "S1"; // Healthy uptrend
+    state = "S1";
     liquidityTag = "Expanding";
     stateReasons.push("Price up + OI expanding");
   } else if (priceTrendUp && !oiExpanding) {
@@ -637,15 +741,15 @@ function analyzeBtcMarket(snapshots, etfFlowData) {
     liquidityTag = oiContracting ? "Contracting" : "Unknown";
     stateReasons.push("Price up but OI not expanding");
   } else if (!priceTrendUp && oiContracting) {
-    state = "S3"; // Deleveraging
+    state = "S3";
     liquidityTag = "Contracting";
     stateReasons.push("Price down + OI contracting (deleveraging)");
   } else if (!priceTrendUp && oiExpanding) {
-    state = "S4"; // Bearish leverage
+    state = "S4";
     liquidityTag = "Expanding";
     stateReasons.push("Price down + OI expanding (bearish leverage)");
   } else {
-    state = "S2"; // Correction
+    state = "S2";
     liquidityTag = "Unknown";
     stateReasons.push("Mixed signals");
   }
@@ -686,33 +790,23 @@ async function main() {
         const data = await fetchFredData(config.indicator, FRED_API_KEY);
         prices = data.prices;
         latest = data.latest;
-      } else if (config.source === "binance") {
-        if (config.indicator === "crypto_funding") latest = await fetchBinanceData("funding");
-        else if (config.indicator === "crypto_oi") latest = await fetchBinanceData("oi");
-        else if (config.indicator === "crypto_liquidations") latest = await fetchBinanceData("liquidations");
-      } else if (config.source === "defillama") {
-        latest = await fetchDefiLlamaData();
-      } else if (config.source === "coinalyze_oi") {
-        // Try Coinalyze first (aggregated multi-exchange OI), then CoinGlass, then Binance/OKX
-        if (COINALYZE_API_KEY) {
-          latest = await fetchCoinalyzeOI(COINALYZE_API_KEY);
-        }
-        if (latest === null && COINGLASS_API_KEY) {
-          latest = await fetchCoinGlassOI(COINGLASS_API_KEY);
-        }
-        if (latest === null) {
-          console.log("[Crypto OI] Coinalyze/CoinGlass unavailable, trying Binance+OKX...");
-          latest = await fetchBinanceData("oi");
-        }
-      } else if (config.source === "coinalyze") {
-        if (COINALYZE_API_KEY) {
-          const liqData = await fetchCoinalyzeLiquidations(COINALYZE_API_KEY);
-          if (liqData) { latest = liqData.total24h; liquidationData = liqData; }
-        } else {
-          // Fallback to OKX
-          const liqData = await fetchOKXLiquidations();
-          if (liqData) { latest = liqData.total24h; liquidationData = liqData; }
-        }
+      } else if (config.source === "crypto_funding") {
+        const data = await fetchFundingRateHistory(COINALYZE_API_KEY);
+        prices = data.prices;
+        latest = data.latest;
+      } else if (config.source === "crypto_oi") {
+        const data = await fetchOIHistory(COINALYZE_API_KEY);
+        prices = data.prices;
+        latest = data.latest;
+      } else if (config.source === "crypto_liquidations") {
+        const data = await fetchLiquidationHistory(COINALYZE_API_KEY);
+        prices = data.prices;
+        latest = data.latest;
+        if (data.liquidationDetail) liquidationData = data.liquidationDetail;
+      } else if (config.source === "stablecoin_history") {
+        const data = await fetchStablecoinHistory();
+        prices = data.prices;
+        latest = data.latest;
       }
     } catch (error) {
       console.error(`[Error] ${config.indicator}:`, error.message);
@@ -778,12 +872,11 @@ async function main() {
   const timeStr = bjTime.toISOString().split("T")[1].slice(0, 8);
 
   const report = {
-    version: "2.0",
+    version: "2.1",
     generatedAt: now.toISOString(),
     generatedAtBJT: `${dateStr} ${timeStr}`,
     date: dateStr,
 
-    // 核心判定
     regime: {
       regime: regime.regime,
       status: regime.status,
@@ -792,17 +885,14 @@ async function main() {
       untriggeredRules: regime.untriggeredRules,
     },
 
-    // 执行开关
     switches,
 
-    // 数据质量
     dataQuality: {
       score: dataQuality,
       total: snapshots.length,
       valid: snapshots.filter((s) => s.latestValue !== null).length,
     },
 
-    // 所有指标快照
     snapshots: snapshots.map((s) => ({
       indicator: s.indicator,
       displayName: s.displayName,
@@ -815,7 +905,6 @@ async function main() {
       sparklineData: s.sparklineData,
     })),
 
-    // BTC 分析
     btcAnalysis: {
       state: btcAnalysis.state,
       liquidityTag: btcAnalysis.liquidityTag,
@@ -824,7 +913,6 @@ async function main() {
       stateReasons: btcAnalysis.stateReasons,
     },
 
-    // 清算数据详情
     liquidationData: liquidationData
       ? {
           total24h: liquidationData.total24h,
@@ -836,7 +924,6 @@ async function main() {
         }
       : null,
 
-    // ETF Flow 最近数据
     etfFlow: etfFlowData.slice(-30),
   };
 
@@ -850,7 +937,7 @@ async function main() {
   fs.writeFileSync(latestPath, JSON.stringify(report, null, 2));
   fs.writeFileSync(dailyPath, JSON.stringify(report, null, 2));
 
-  // 10. 更新 index.json（所有可用报告日期列表）
+  // 10. 更新 index.json
   const existingFiles = fs.readdirSync(docsDir).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f));
   const dates = existingFiles.map((f) => f.replace(".json", "")).sort().reverse();
   fs.writeFileSync(path.join(docsDir, "index.json"), JSON.stringify({ dates, updatedAt: now.toISOString() }, null, 2));

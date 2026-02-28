@@ -66,7 +66,7 @@ function formatIndicatorValue(indicator: string, value: number | null | undefine
     return "--";
   }
   if (indicator === "crypto_funding") {
-    return `${value.toFixed(6)}%`;
+    return `${value.toFixed(4)}%`;
   }
   if (indicator === "crypto_liquidations") {
     if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
@@ -137,9 +137,9 @@ const dataSourceInfo: Record<string, { name: string; source: string; url: string
   "VIXCLS": { name: "VIX Index", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
   "DFII10": { name: "10Y Real Yield", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
   "BAMLH0A0HYM2": { name: "HY OAS", source: "FRED", url: "https://fred.stlouisfed.org/docs/api/", description: "需要FRED API Key（免费）" },
-  "crypto_funding": { name: "BTC Funding Rate", source: "Binance/OKX", url: "", description: "免费，无需API Key" },
-  "crypto_oi": { name: "BTC Open Interest", source: "Binance/OKX", url: "", description: "免费，无需API Key" },
-  "crypto_liquidations": { name: "BTC Liquidations (24h)", source: "Coinalyze", url: "https://coinalyze.net/api/", description: "需要Coinalyze API Key" },
+  "crypto_funding": { name: "BTC Funding Rate", source: "Coinalyze (聚合)", url: "https://coinalyze.net/api/", description: "需要Coinalyze API Key" },
+  "crypto_oi": { name: "BTC Open Interest", source: "Coinalyze (聚合)", url: "https://coinalyze.net/api/", description: "需要Coinalyze API Key" },
+  "crypto_liquidations": { name: "BTC Liquidations (24h)", source: "Coinalyze (聚合)", url: "https://coinalyze.net/api/", description: "需要Coinalyze API Key" },
   "stablecoin": { name: "Stablecoin Supply", source: "DefiLlama", url: "", description: "免费，无需API Key" },
 };
 
@@ -1099,7 +1099,7 @@ function BtcAnalysisCard({
 
   const formatFunding = (value: number | null) => {
     if (value === null) return "missing";
-    return `${value.toFixed(6)}%`;
+    return `${value.toFixed(4)}%`;
   };
 
   const formatLiq = (value: number | null) => {

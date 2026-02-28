@@ -319,3 +319,13 @@
 ## 更新 (2026-02-28 - GitHub Pages源目录改为/docs)
 - [x] 还原VITE_GITHUB_PAGES_URL为不含/docs的路径（因为GitHub Pages源目录已改为/docs）
 - [x] 更新useGitHubReport.ts中的fallback URL
+
+## Bug修复 (2026-02-28 - 生产环境问题)
+- [x] marketmonit-rcaagyfa.manus.space 显示404：需要发布最新版本（已修复环境变量，用户需点击Publish）
+- [x] marketmonitor.wouhao.com OAuth登录失败：redirect_uri domain not allowed（平台限制，建议使用manus.space域名）
+
+## Bug修复 (2026-02-28 - 数据质量问题)
+- [x] 加密指标历史数据缺失：已改用Coinalyze API获取60天历史数据，支持1D/7D/30D/MA20
+- [x] 爆仓数据显示$0：已修复Coinalyze liquidation-history API调用（60天daily interval）
+- [x] 资金费率格式问题：已改用Coinalyze funding-rate-history（值已是%格式），前端显示4位小数
+- [x] 验证ETF数据准确性（数据正确，无需修改）
