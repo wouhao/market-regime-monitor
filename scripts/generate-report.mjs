@@ -269,7 +269,7 @@ async function fetchOIHistory(apiKey) {
   if (!apiKey) return await fetchOIFallback(null);
   
   try {
-    await sleep(3000); // Wait for rate limit recovery from previous Coinalyze calls
+    await sleep(20000); // Wait 20s for rate limit recovery (40 calls/min window)
     const symbols = await getCachedCoinalyzeBtcSymbols(apiKey);
     const data = await fetchCoinalyzeBatchHistory("open-interest-history", symbols, apiKey, {
       convert_to_usd: "true",
@@ -354,7 +354,7 @@ async function fetchLiquidationHistory(apiKey) {
   if (!apiKey) return await fetchLiquidationFallback();
   
   try {
-    await sleep(3000); // Wait for rate limit recovery from previous Coinalyze calls
+    await sleep(20000); // Wait 20s for rate limit recovery (40 calls/min window)
     const symbols = await getCachedCoinalyzeBtcSymbols(apiKey);
     const data = await fetchCoinalyzeBatchHistory("liquidation-history", symbols, apiKey, {
       convert_to_usd: "true",
@@ -602,6 +602,16 @@ function calculateChange(prices, days) {
   return ((current - past) / past) * 100;
 }
 
+// For funding rate: use absolute change in basis points instead of % change
+// Because funding rate is near-zero, % change is misleading (e.g., -0.0004 to -0.0022 = -450%)
+function calculateAbsoluteChange(prices, days) {
+  if (prices.length < days + 1) return null;
+  const current = prices[prices.length - 1];
+  const past = prices[prices.length - 1 - days];
+  if (current === null || current === undefined || past === null || past === undefined) return null;
+  return current - past; // absolute difference in the same unit (% for funding rate)
+}
+
 function calculateMA20(prices) {
   if (prices.length < 20) return null;
   const last20 = prices.slice(-20);
@@ -841,16 +851,19 @@ async function main() {
     }
 
     const ma20 = calculateMA20(prices);
+    // For funding rate, use absolute change (bps) instead of % change
+    const isFunding = config.source === "crypto_funding";
     snapshots.push({
       indicator: config.indicator,
       displayName: config.displayName,
       latestValue: latest,
-      change1d: calculateChange(prices, 1),
-      change7d: calculateChange(prices, 7),
-      change30d: calculateChange(prices, 30),
+      change1d: isFunding ? calculateAbsoluteChange(prices, 1) : calculateChange(prices, 1),
+      change7d: isFunding ? calculateAbsoluteChange(prices, 7) : calculateChange(prices, 7),
+      change30d: isFunding ? calculateAbsoluteChange(prices, 30) : calculateChange(prices, 30),
       ma20,
       aboveMa20: latest !== null && ma20 !== null ? latest > ma20 : null,
       sparklineData: prices.slice(-30),
+      changeType: isFunding ? "absolute" : "percent", // Tell frontend how to display
     });
   }
 
@@ -931,6 +944,7 @@ async function main() {
       ma20: s.ma20,
       aboveMa20: s.aboveMa20,
       sparklineData: s.sparklineData,
+      changeType: s.changeType || "percent",
     })),
 
     btcAnalysis: {

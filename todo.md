@@ -333,3 +333,8 @@
 ## Bug修复 (2026-02-28 - OI和Liquidations数值异常)
 - [x] BTC Open Interest显示$192.80B：修复Coinalyze速率限制（限制主要交易所）+OKX fallback用oiUsd字段
 - [x] BTC Liquidations显示$1.72B：修复Coinalyze速率限制+OKX fallback乘以ctVal(0.01)
+
+## Bug修复 (2026-02-28 - 爆仓和Funding Rate变化率问题)
+- [x] Liquidations仍只有OKX数据$17.25M：增加端点间延迟到20秒避免429
+- [x] Funding Rate变化率异常：改用绝对变化而非百分比变化
+- [x] Liquidations没有历史数据：通过修复速率限制解决

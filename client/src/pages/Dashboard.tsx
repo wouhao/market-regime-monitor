@@ -576,13 +576,13 @@ export default function Dashboard() {
                           : <span className="text-yellow-500">--</span>}
                       </td>
                       <td className="text-right py-3 px-2">
-                        <ChangeCell value={snapshot.change1d} />
+                        <ChangeCell value={snapshot.change1d} changeType={(snapshot as any).changeType} />
                       </td>
                       <td className="text-right py-3 px-2">
-                        <ChangeCell value={snapshot.change7d} />
+                        <ChangeCell value={snapshot.change7d} changeType={(snapshot as any).changeType} />
                       </td>
                       <td className="text-right py-3 px-2">
-                        <ChangeCell value={snapshot.change30d} />
+                        <ChangeCell value={snapshot.change30d} changeType={(snapshot as any).changeType} />
                       </td>
                       <td className="text-center py-3 px-2">
                         {snapshot.aboveMa20 === true ? (
@@ -728,11 +728,21 @@ export default function Dashboard() {
 }
 
 // 变化率单元格组件
-function ChangeCell({ value }: { value: number | null }) {
+function ChangeCell({ value, changeType }: { value: number | null; changeType?: string }) {
   if (!value && value !== 0) return <span className="text-muted-foreground">--</span>;
   
   const numValue = Number(value);
   const isPositive = numValue >= 0;
+  
+  // For funding rate, show absolute change in bps (basis points of %)
+  if (changeType === "absolute") {
+    // value is already the absolute difference in % (e.g., -0.0018 means -0.0018%)
+    return (
+      <span className={`font-mono ${isPositive ? "text-green-400" : "text-red-400"}`}>
+        {isPositive ? "+" : ""}{numValue.toFixed(4)}%
+      </span>
+    );
+  }
   
   return (
     <span className={`font-mono ${isPositive ? "text-green-400" : "text-red-400"}`}>
