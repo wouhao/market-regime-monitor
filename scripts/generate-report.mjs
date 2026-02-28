@@ -29,7 +29,7 @@ const INDICATORS_CONFIG = [
   { indicator: "DFII10", displayName: "10Y Real Yield", source: "fred" },
   { indicator: "BAMLH0A0HYM2", displayName: "HY OAS", source: "fred" },
   { indicator: "crypto_funding", displayName: "BTC Funding Rate", source: "binance" },
-  { indicator: "crypto_oi", displayName: "BTC Open Interest", source: "coinglass" },
+  { indicator: "crypto_oi", displayName: "BTC Open Interest", source: "coinalyze_oi" },
   { indicator: "crypto_liquidations", displayName: "BTC Liquidations (24h)", source: "coinalyze" },
   { indicator: "stablecoin", displayName: "Stablecoin Supply (USDT+USDC)", source: "defillama" },
 ];
@@ -199,6 +199,65 @@ async function fetchCoinGlassOI(apiKey) {
     return null;
   } catch (error) {
     console.error(`[CoinGlass] Failed:`, error.message);
+    return null;
+  }
+}
+
+async function fetchCoinalyzeOI(apiKey) {
+  try {
+    const baseUrl = "https://api.coinalyze.net/v1";
+    // Get all BTC perpetual markets
+    let btcSymbols = [];
+    try {
+      const marketsData = await fetchJson(`${baseUrl}/future-markets`, { headers: { api_key: apiKey } });
+      if (Array.isArray(marketsData)) {
+        btcSymbols = marketsData
+          .filter((m) => m.base_asset === "BTC" && m.is_perpetual === true && m.symbol)
+          .map((m) => m.symbol);
+      }
+    } catch (e) {
+      console.warn(`[Coinalyze OI] Failed to fetch markets`);
+    }
+
+    if (btcSymbols.length === 0) {
+      btcSymbols = ["BTCUSDT_PERP.A", "BTCUSDT_PERP.6", "BTCUSDT_PERP.4", "BTCUSDT_PERP.7", "BTCUSD_PERP.A", "BTCUSD_PERP.2"];
+    }
+
+    // Fetch OI for all symbols in batches
+    const batchSize = 20;
+    const now = Math.floor(Date.now() / 1000);
+    const from = now - 2 * 24 * 60 * 60; // 2 days back
+    let totalOiUsd = 0;
+
+    for (let i = 0; i < btcSymbols.length; i += batchSize) {
+      const batch = btcSymbols.slice(i, i + batchSize).join(",");
+      const url = `${baseUrl}/open-interest-history?symbols=${batch}&interval=daily&convert_to_usd=true&from=${from}&to=${now}`;
+      try {
+        const data = await fetchJson(url, { headers: { api_key: apiKey }, timeout: 15000 });
+        if (Array.isArray(data)) {
+          for (const ex of data) {
+            const history = ex.history || [];
+            if (history.length > 0) {
+              // Get the latest data point
+              const latest = history[history.length - 1];
+              // OI fields: o=open, h=high, l=low, c=close
+              totalOiUsd += latest.c || latest.o || 0;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`[Coinalyze OI] Batch failed, continuing...`);
+      }
+      if (i + batchSize < btcSymbols.length) await new Promise((r) => setTimeout(r, 500));
+    }
+
+    if (totalOiUsd > 0) {
+      console.log(`[Coinalyze OI] Aggregated BTC OI: $${(totalOiUsd / 1e9).toFixed(2)}B`);
+      return totalOiUsd;
+    }
+    return null;
+  } catch (error) {
+    console.error(`[Coinalyze OI] Failed:`, error.message);
     return null;
   }
 }
@@ -633,9 +692,18 @@ async function main() {
         else if (config.indicator === "crypto_liquidations") latest = await fetchBinanceData("liquidations");
       } else if (config.source === "defillama") {
         latest = await fetchDefiLlamaData();
-      } else if (config.source === "coinglass") {
-        if (COINGLASS_API_KEY) latest = await fetchCoinGlassOI(COINGLASS_API_KEY);
-        else console.log("[Skip] CoinGlass API Key not configured");
+      } else if (config.source === "coinalyze_oi") {
+        // Try Coinalyze first (aggregated multi-exchange OI), then CoinGlass, then Binance/OKX
+        if (COINALYZE_API_KEY) {
+          latest = await fetchCoinalyzeOI(COINALYZE_API_KEY);
+        }
+        if (latest === null && COINGLASS_API_KEY) {
+          latest = await fetchCoinGlassOI(COINGLASS_API_KEY);
+        }
+        if (latest === null) {
+          console.log("[Crypto OI] Coinalyze/CoinGlass unavailable, trying Binance+OKX...");
+          latest = await fetchBinanceData("oi");
+        }
       } else if (config.source === "coinalyze") {
         if (COINALYZE_API_KEY) {
           const liqData = await fetchCoinalyzeLiquidations(COINALYZE_API_KEY);

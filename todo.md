@@ -309,3 +309,13 @@
 
 ## Bug修复 (2026-02-28 - GitHub Pages URL路径错误)
 - [x] 修复 VITE_GITHUB_PAGES_URL 路径：GitHub Pages从根目录/提供服务，JSON文件在docs/reports/，需要在URL中包含/docs
+
+## Bug修复 (2026-02-28 - BTC Open Interest数据缺失)
+- [x] 诊断generate-report.mjs中OI获取失败原因
+- [x] 确保Coinalyze API正确使用（COINALYZE_API_KEY已配置）
+- [x] 修复OI数据获取逻辑
+- [x] 推送修复到GitHub并验证
+
+## 更新 (2026-02-28 - GitHub Pages源目录改为/docs)
+- [x] 还原VITE_GITHUB_PAGES_URL为不含/docs的路径（因为GitHub Pages源目录已改为/docs）
+- [x] 更新useGitHubReport.ts中的fallback URL
