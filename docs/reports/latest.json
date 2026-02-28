@@ -1,11 +1,11 @@
 {
   "version": "2.0",
-  "generatedAt": "2026-02-28T08:27:04.147Z",
-  "generatedAtBJT": "2026-02-28 16:27:04",
+  "generatedAt": "2026-02-28T09:26:25.970Z",
+  "generatedAtBJT": "2026-02-28 17:26:25",
   "date": "2026-02-28",
   "regime": {
     "regime": "risk_off",
-    "status": "watch",
+    "status": "confirmed",
     "confidence": 100,
     "triggeredRules": [
       "C: QQQ < 20D MA AND GLD > 20D MA"
@@ -24,19 +24,19 @@
     "spotPace": "pause"
   },
   "dataQuality": {
-    "score": 92,
+    "score": 100,
     "total": 12,
-    "valid": 11
+    "valid": 12
   },
   "snapshots": [
     {
       "indicator": "BTC-USD",
       "displayName": "Bitcoin",
-      "latestValue": 63650.4921875,
-      "change1d": -3.3868303436433855,
-      "change7d": -6.401518206367708,
-      "change30d": -24.728833450989814,
-      "ma20": 67328.698828125,
+      "latestValue": 63801.94921875,
+      "change1d": -3.1569382665687957,
+      "change7d": -6.178799611510484,
+      "change30d": -24.549724900019708,
+      "ma20": 67336.2716796875,
       "aboveMa20": false,
       "sparklineData": [
         84128.65625,
@@ -68,7 +68,7 @@
         67960.125,
         67453.7734375,
         65881.796875,
-        63650.4921875
+        63801.94921875
       ]
     },
     {
@@ -368,7 +368,7 @@
     {
       "indicator": "crypto_funding",
       "displayName": "BTC Funding Rate",
-      "latestValue": 0.00029753675557,
+      "latestValue": -0.00076143170637,
       "change1d": null,
       "change7d": null,
       "change30d": null,
@@ -379,7 +379,7 @@
     {
       "indicator": "crypto_oi",
       "displayName": "BTC Open Interest",
-      "latestValue": null,
+      "latestValue": 17766459193.03827,
       "change1d": null,
       "change7d": null,
       "change30d": null,
@@ -390,7 +390,7 @@
     {
       "indicator": "crypto_liquidations",
       "displayName": "BTC Liquidations (24h)",
-      "latestValue": 90307987.14654756,
+      "latestValue": 0,
       "change1d": null,
       "change7d": null,
       "change30d": null,
@@ -401,7 +401,7 @@
     {
       "indicator": "stablecoin",
       "displayName": "Stablecoin Supply (USDT+USDC)",
-      "latestValue": 258786119496.57428,
+      "latestValue": 258817503878.7246,
       "change1d": null,
       "change7d": null,
       "change30d": null,
@@ -416,22 +416,22 @@
     "confidence": "watch",
     "evidence": {
       "price": {
-        "latest": 63650.4921875,
-        "pct7d": -6.401518206367708,
-        "pct30d": -24.728833450989814
+        "latest": 63801.94921875,
+        "pct7d": -6.178799611510484,
+        "pct30d": -24.549724900019708
       },
       "oi": {
-        "latest": null,
+        "latest": 17766459193.03827,
         "pct7d": null
       },
       "funding": {
-        "latest": 0.00029753675557
+        "latest": -0.00076143170637
       },
       "liquidations": {
-        "h24": 90307987.14654756
+        "h24": 0
       },
       "stablecoin": {
-        "latest": 258786119496.57428,
+        "latest": 258817503878.7246,
         "pct7d": null,
         "pct30d": null
       },
@@ -449,12 +449,12 @@
     ]
   },
   "liquidationData": {
-    "total24h": 90307987.14654756,
-    "long24h": 75240707.68453754,
-    "short24h": 15067279.462010004,
-    "total7d": 136560234.87302488,
+    "total24h": 0,
+    "long24h": 0,
+    "short24h": 0,
+    "total7d": 0,
     "source": "Coinalyze",
-    "requestTime": "2026-02-28T08:27:01.348Z"
+    "requestTime": "2026-02-28T09:26:23.527Z"
   },
   "etfFlow": [
     {
