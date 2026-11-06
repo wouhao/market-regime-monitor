@@ -1,27 +1,27 @@
 {
   "version": "2.1",
-  "generatedAt": "2026-11-05T07:45:43.538Z",
-  "generatedAtBJT": "2026-11-05 15:45:43",
-  "date": "2026-11-05",
+  "generatedAt": "2026-11-06T07:45:18.759Z",
+  "generatedAtBJT": "2026-11-06 15:45:18",
+  "date": "2026-11-06",
   "regime": {
-    "regime": "risk_on",
-    "status": "confirmed",
+    "regime": "risk_off",
+    "status": "watch",
     "confidence": 100,
     "triggeredRules": [
-      "E: GLD ≤ +0.5% OR GLD ≤ 20D MA",
-      "F: BTC ≥ 0% OR BTC > 20D MA"
+      "C: QQQ < 20D MA AND GLD > 20D MA"
     ],
     "untriggeredRules": [
       "A: QQQ ≤ -2.0% AND GLD ≥ +1.0%",
       "B: VIX ≥ 20 AND QQQ < 0%",
-      "C: QQQ < 20D MA AND GLD > 20D MA",
-      "D: QQQ ≥ +1.0% AND QQQ > 20D MA"
+      "D: QQQ ≥ +1.0% AND QQQ > 20D MA",
+      "E: GLD ≤ +0.5% OR GLD ≤ 20D MA",
+      "F: BTC ≥ 0% OR BTC > 20D MA"
     ]
   },
   "switches": {
-    "marginBorrow": "allowed",
-    "putSelling": "helper",
-    "spotPace": "fast"
+    "marginBorrow": "forbidden",
+    "putSelling": "aggressive",
+    "spotPace": "pause"
   },
   "dataQuality": {
     "score": 100,
@@ -32,14 +32,13 @@
     {
       "indicator": "BTC-USD",
       "displayName": "Bitcoin",
-      "latestValue": 80319.84375,
-      "change1d": -0.10626827351317937,
-      "change7d": 3.2719135922140903,
-      "change30d": -6.121865323126754,
-      "ma20": 80144.525,
-      "aboveMa20": true,
+      "latestValue": 75590.0234375,
+      "change1d": -0.46364460106956445,
+      "change7d": -2.0831927067610354,
+      "change30d": -9.229445145604517,
+      "ma20": 79636.0328125,
+      "aboveMa20": false,
       "sparklineData": [
-        83275.9296875,
         81676.3359375,
         82546.3203125,
         82912.2265625,
@@ -68,21 +67,21 @@
         76677.296875,
         77345.046875,
         80405.2890625,
-        80319.84375
+        75942.125,
+        75590.0234375
       ],
       "changeType": "percent"
     },
     {
       "indicator": "QQQ",
       "displayName": "Nasdaq-100 ETF",
-      "latestValue": 691.9500122070312,
-      "change1d": 0.9733222368963419,
-      "change7d": -2.8433023944000544,
-      "change30d": -6.645890949305356,
-      "ma20": 717.4240051269531,
+      "latestValue": 647.0499877929688,
+      "change1d": -6.488911571928469,
+      "change7d": -10.287696666486134,
+      "change30d": -12.690593832311196,
+      "ma20": 712.3975036621093,
       "aboveMa20": false,
       "sparklineData": [
-        741.0999755859375,
         744.5,
         736.530029296875,
         737.9299926757812,
@@ -111,21 +110,21 @@
         690.489990234375,
         681.0900268554688,
         685.280029296875,
-        691.9500122070312
+        691.9500122070312,
+        647.0499877929688
       ],
       "changeType": "percent"
     },
     {
       "indicator": "GLD",
       "displayName": "SPDR Gold",
-      "latestValue": 372.489990234375,
-      "change1d": 3.68256419003635,
-      "change7d": 1.2696380885120926,
-      "change30d": -5.189883525510389,
-      "ma20": 373.54949951171875,
-      "aboveMa20": false,
+      "latestValue": 375.489990234375,
+      "change1d": 0.8053907698599807,
+      "change7d": 0.8622519247887777,
+      "change30d": -4.1359269080284085,
+      "ma20": 373.39299926757815,
+      "aboveMa20": true,
       "sparklineData": [
-        391.69000244140625,
         393.4100036621094,
         377.9100036621094,
         382.8900146484375,
@@ -154,21 +153,21 @@
         355.7799987792969,
         361.6499938964844,
         359.260009765625,
-        372.489990234375
+        372.489990234375,
+        375.489990234375
       ],
       "changeType": "percent"
     },
     {
       "indicator": "VIXCLS",
       "displayName": "VIX Index",
-      "latestValue": 20.83,
-      "change1d": -1.5130023640661954,
-      "change7d": 7.095115681233928,
-      "change30d": 46.58691062631947,
-      "ma20": 17.573,
-      "aboveMa20": true,
+      "latestValue": 16.61,
+      "change1d": -20.25924147863658,
+      "change7d": -9.679173463839048,
+      "change30d": 9.420289855072463,
+      "ma20": 17.6495,
+      "aboveMa20": false,
       "sparklineData": [
-        15.18,
         15.67,
         14.87,
         16.07,
@@ -197,21 +196,21 @@
         17.2,
         19.42,
         21.15,
-        20.83
+        20.83,
+        16.61
       ],
       "changeType": "percent"
     },
     {
       "indicator": "DX-Y.NYB",
       "displayName": "US Dollar Index (DXY)",
-      "latestValue": 101.4219970703125,
-      "change1d": -0.08669595514327981,
-      "change7d": -0.8776413479183617,
-      "change30d": 0.13031508894469937,
-      "ma20": 101.96060028076172,
-      "aboveMa20": false,
+      "latestValue": 101.96499633789062,
+      "change1d": 0.40865905825852067,
+      "change7d": -0.2201840670711786,
+      "change30d": 0.9854363723464864,
+      "ma20": 101.95475044250489,
+      "aboveMa20": true,
       "sparklineData": [
-        100.97000122070312,
         101.19999694824219,
         101.37000274658203,
         101.44999694824219,
@@ -240,21 +239,21 @@
         101.75,
         101.87000274658203,
         101.51000213623047,
-        101.4219970703125
+        101.55000305175781,
+        101.96499633789062
       ],
       "changeType": "percent"
     },
     {
       "indicator": "DGS10",
       "displayName": "10Y Treasury",
-      "latestValue": 4.95,
-      "change1d": 0.8146639511201635,
-      "change7d": -0.9999999999999963,
-      "change30d": -0.20161290322580216,
-      "ma20": 5.0889999999999995,
+      "latestValue": 4.9,
+      "change1d": -1.0101010101010066,
+      "change7d": -1.9999999999999927,
+      "change30d": -1.209677419354831,
+      "ma20": 5.0705,
       "aboveMa20": false,
       "sparklineData": [
-        4.96,
         5.11,
         5.18,
         5.17,
@@ -283,21 +282,21 @@
         4.98,
         4.94,
         4.91,
-        4.95
+        4.95,
+        4.9
       ],
       "changeType": "percent"
     },
     {
       "indicator": "DFII10",
       "displayName": "10Y Real Yield",
-      "latestValue": 2.65,
-      "change1d": 1.1450381679389239,
-      "change7d": -0.3759398496240688,
-      "change30d": 1.1450381679389239,
-      "ma20": 2.7475,
+      "latestValue": 2.64,
+      "change1d": -0.3773584905660297,
+      "change7d": -0.7518796992481209,
+      "change30d": 0.3802281368821381,
+      "ma20": 2.7339999999999995,
       "aboveMa20": false,
       "sparklineData": [
-        2.63,
         2.76,
         2.85,
         2.83,
@@ -326,21 +325,21 @@
         2.63,
         2.6,
         2.62,
-        2.65
+        2.65,
+        2.64
       ],
       "changeType": "percent"
     },
     {
       "indicator": "BAMLH0A0HYM2",
       "displayName": "HY OAS",
-      "latestValue": 3.4,
-      "change1d": -0.8746355685131266,
-      "change7d": 0.5917159763313614,
-      "change30d": 26.86567164179103,
-      "ma20": 3.2614999999999994,
+      "latestValue": 3.32,
+      "change1d": -2.35294117647059,
+      "change7d": 0.6060606060606066,
+      "change30d": 21.611721611721606,
+      "ma20": 3.2729999999999997,
       "aboveMa20": true,
       "sparklineData": [
-        2.73,
         2.8,
         2.93,
         3.02,
@@ -369,21 +368,21 @@
         3.26,
         3.44,
         3.43,
-        3.4
+        3.4,
+        3.32
       ],
       "changeType": "percent"
     },
     {
       "indicator": "crypto_funding",
       "displayName": "BTC Funding Rate",
-      "latestValue": 0.0062868415861627005,
-      "change1d": -0.0011784667824166995,
-      "change7d": -0.02629549431099745,
-      "change30d": -0.0003021584138372998,
-      "ma20": 0.009708838076693713,
+      "latestValue": 0.01,
+      "change1d": 0,
+      "change7d": 0,
+      "change30d": 0.00566060253858705,
+      "ma20": 0.010109612434429179,
       "aboveMa20": false,
       "sparklineData": [
-        0.00433939746141295,
         0.00836125,
         0.0040299651300456495,
         0.0032772002133917752,
@@ -412,21 +411,21 @@
         0.012920511429432052,
         0.01,
         0.0074653083685794,
-        0.0062868415861627005
+        0.01,
+        0.01
       ],
       "changeType": "absolute"
     },
     {
       "indicator": "crypto_oi",
       "displayName": "BTC Open Interest",
-      "latestValue": 10551756217.9734,
-      "change1d": -0.4104356112135215,
-      "change7d": 2.222618433002322,
-      "change30d": -7.780609591682075,
-      "ma20": 10633992682.58987,
+      "latestValue": 9990018174.3293,
+      "change1d": 0.6843928782951729,
+      "change7d": -3.288203421378909,
+      "change30d": -10.912171826245133,
+      "ma20": 10565977356.948685,
       "aboveMa20": false,
       "sparklineData": [
-        11213673494.0322,
         10739592327.79,
         10765399988.549,
         10817386764.036,
@@ -455,21 +454,21 @@
         10453049357.274601,
         10457298659.273098,
         10595242867.797401,
-        10551756217.9734
+        9922111946.789001,
+        9990018174.3293
       ],
       "changeType": "percent"
     },
     {
       "indicator": "crypto_liquidations",
       "displayName": "BTC Liquidations (24h)",
-      "latestValue": 2680679.0586000006,
-      "change1d": -98.02833188986116,
-      "change7d": -98.21023306219514,
-      "change30d": -75.51135598542446,
-      "ma20": 42420000.15222497,
+      "latestValue": 5046995.637599998,
+      "change1d": -95.88736263322488,
+      "change7d": -96.31903246682185,
+      "change30d": -94.32412155725865,
+      "ma20": 48044779.491564944,
       "aboveMa20": false,
       "sparklineData": [
-        88920079.74649987,
         146062720.90539977,
         18391450.094200004,
         2428549.1391999996,
@@ -498,21 +497,21 @@
         30988245.606100004,
         23559891.260700002,
         135959954.15329987,
-        2680679.0586000006
+        122719199.08069958,
+        5046995.637599998
       ],
       "changeType": "percent"
     },
     {
       "indicator": "stablecoin",
       "displayName": "Stablecoin Supply (USDT+USDC)",
-      "latestValue": 248855701011.37,
-      "change1d": -0.09723458230338618,
-      "change7d": -1.259949925986045,
-      "change30d": -3.7254985525042352,
-      "ma20": 253147973423.5685,
+      "latestValue": 248171589875.35,
+      "change1d": -0.24029005047796526,
+      "change7d": -1.437136575389876,
+      "change30d": -3.9643592759095374,
+      "ma20": 252741822751.2675,
       "aboveMa20": false,
       "sparklineData": [
-        258416133848,
         258041575275,
         257587200518,
         257060625795,
@@ -541,35 +540,36 @@
         250782508713,
         249848052260,
         249097910324,
-        248855701011.37
+        248769357891,
+        248171589875.35
       ],
       "changeType": "percent"
     }
   ],
   "btcAnalysis": {
-    "state": "S1",
+    "state": "S2",
     "liquidityTag": "Unknown",
     "confidence": "watch",
     "evidence": {
       "price": {
-        "latest": 80319.84375,
-        "pct7d": 3.2719135922140903,
-        "pct30d": -6.121865323126754
+        "latest": 75590.0234375,
+        "pct7d": -2.0831927067610354,
+        "pct30d": -9.229445145604517
       },
       "oi": {
-        "latest": 10551756217.9734,
-        "pct7d": 2.222618433002322
+        "latest": 9990018174.3293,
+        "pct7d": -3.288203421378909
       },
       "funding": {
-        "latest": 0.0062868415861627005
+        "latest": 0.01
       },
       "liquidations": {
-        "h24": 2680679.0586000006
+        "h24": 5046995.637599998
       },
       "stablecoin": {
-        "latest": 248855701011.37,
-        "pct7d": -1.259949925986045,
-        "pct30d": -3.7254985525042352
+        "latest": 248171589875.35,
+        "pct7d": -1.437136575389876,
+        "pct30d": -3.9643592759095374
       },
       "etfFlow": {
         "today": null,
@@ -581,16 +581,16 @@
       }
     },
     "stateReasons": [
-      "Price up but OI not expanding"
+      "Mixed signals"
     ]
   },
   "liquidationData": {
-    "total24h": 2680679.0586000006,
-    "long24h": 1172721.8116,
-    "short24h": 1507957.2470000007,
-    "total7d": 343766363.1020997,
+    "total24h": 5046995.637599998,
+    "long24h": 4113222.984999998,
+    "short24h": 933772.6525999999,
+    "total7d": 331741306.82359946,
     "source": "Coinalyze",
-    "requestTime": "2026-11-05T07:45:42.694Z"
+    "requestTime": "2026-11-06T07:45:17.622Z"
   },
   "etfFlow": []
 }
